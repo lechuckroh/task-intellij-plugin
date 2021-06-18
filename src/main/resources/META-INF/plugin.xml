@@ -1,0 +1,21 @@
+<idea-plugin>
+    <id>lechuck.task-intellij-plugin</id>
+    <name>Taskfile</name>
+    <vendor email="lechuckroh@gmail.com" url="https://github.com/lechuckroh">LechuckRoh</vendor>
+
+    <description><![CDATA[
+    <code>Taskfile.yml</code> (<a href="https://taskfile.dev">Task</a>) support in Run/Debug configuration
+    ]]></description>
+
+    <!-- please see https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html
+         on how to target different products -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+    </extensions>
+
+    <actions>
+        <!-- Add your actions here -->
+    </actions>
+</idea-plugin>
