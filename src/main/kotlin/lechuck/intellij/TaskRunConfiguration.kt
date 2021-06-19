@@ -2,9 +2,6 @@ package lechuck.intellij
 
 import com.intellij.execution.Executor
 import com.intellij.execution.configurations.*
-import com.intellij.execution.process.ProcessHandler
-import com.intellij.execution.process.ProcessHandlerFactory
-import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
@@ -16,32 +13,39 @@ open class TaskRunConfiguration(
     name: String
 ) : RunConfigurationBase<TaskRunConfigurationOptions>(project, factory, name) {
 
-    override fun getOptions(): TaskRunConfigurationOptions {
+    public override fun getOptions(): TaskRunConfigurationOptions {
         return super.getOptions() as TaskRunConfigurationOptions
     }
 
-    fun getScriptName(): String {
-        return options.getTaskFilename()
+    fun getTaskfile(): String {
+        return options.getTaskfile()
     }
 
-    fun setScriptName(scriptName: String) {
-        options.setTaskFilename(scriptName)
+    fun setTaskfile(filename: String) {
+        options.setTaskfile(filename)
+    }
+
+    fun getTask(): String {
+        return options.getTask()
+    }
+
+    fun setTask(task: String) {
+        options.setTask(task)
     }
 
     override fun getConfigurationEditor(): SettingsEditor<out RunConfiguration> {
         return TaskSettingsEditor()
     }
 
-    override fun checkConfiguration() {}
+    @Throws(RuntimeConfigurationException::class)
+    override fun checkConfiguration() {
+        val task = getTask()
+        if (task.isEmpty()) {
+            throw RuntimeConfigurationError("Task is not set")
+        }
+    }
 
     override fun getState(executor: Executor, env: ExecutionEnvironment): RunProfileState {
-        return object : CommandLineState(env) {
-            override fun startProcess(): ProcessHandler {
-                val commandLine = GeneralCommandLine(options.getTaskFilename())
-                val processHandler = ProcessHandlerFactory.getInstance().createColoredProcessHandler(commandLine)
-                ProcessTerminatedListener.attach(processHandler)
-                return processHandler
-            }
-        }
+        return TaskCommandLineState(env, this)
     }
 }

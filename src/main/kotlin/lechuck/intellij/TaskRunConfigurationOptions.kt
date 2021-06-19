@@ -4,13 +4,22 @@ import com.intellij.execution.configurations.RunConfigurationOptions
 import com.intellij.openapi.components.StoredProperty
 
 class TaskRunConfigurationOptions : RunConfigurationOptions() {
-    private val taskFilename: StoredProperty<String?> = string("").provideDelegate(this, "taskFilename")
+    private val taskfile: StoredProperty<String?> = string("").provideDelegate(this, "taskfile")
+    private val task: StoredProperty<String?> = string("").provideDelegate(this, "task")
 
-    fun getTaskFilename(): String {
-        return taskFilename.getValue(this)!!
+    fun getTaskfile(): String {
+        return taskfile.getValue(this) ?: ""
     }
 
-    fun setTaskFilename(filename: String) {
-        taskFilename.setValue(this, filename)
+    fun setTaskfile(filename: String) {
+        taskfile.setValue(this, filename)
+    }
+
+    fun getTask(): String {
+        return task.getValue(this) ?: ""
+    }
+
+    fun setTask(name: String) {
+        task.setValue(this, name)
     }
 }
