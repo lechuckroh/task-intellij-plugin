@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>lechuck.task-intellij-plugin</id>
+    <id>lechuck.intellij-plugin.task</id>
     <name>Taskfile</name>
     <vendor email="lechuckroh@gmail.com" url="https://github.com/lechuckroh">LechuckRoh</vendor>
 
@@ -12,7 +12,7 @@
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- Add your extensions here -->
+        <configurationType implementation="lechuck.intellij.TaskRunConfigurationType"/>
     </extensions>
 
     <actions>
