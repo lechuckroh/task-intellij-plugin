@@ -17,5 +17,5 @@ $ ./gradlew build
 1. Install [Taskfile Plugin](https://plugins.jetbrains.com/plugin/17058-taskfile) by searching `Taskfile` in plugin marketplace.
 2. Open 'Run/Debug Configurations'.
 3. Add `Taskfile`:
-  * Taskfile: `Taskfile.yml` file to use. 
-  * Task: Input task name to run.
+    * Taskfile: `Taskfile.yml` file to use. 
+    * Task: Input task name to run.
