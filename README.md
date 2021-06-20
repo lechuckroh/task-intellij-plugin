@@ -1,5 +1,7 @@
 # Task IntelliJ Run Configuration Plugin
 
+![Plugin Downloads](https://img.shields.io/jetbrains/plugin/d/17058-scala.svg)
+
 IntelliJ Run configuration plugin for [Task](https://taskfile.dev/).
 
 ![](docs/screenshot.png)
