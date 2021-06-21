@@ -5,6 +5,7 @@ import com.intellij.execution.configurations.*;
 import com.intellij.execution.runners.ExecutionEnvironment;
 import com.intellij.openapi.options.SettingsEditor;
 import com.intellij.openapi.project.Project;
+import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +45,7 @@ class TaskRunConfiguration extends RunConfigurationBase<TaskRunConfigurationOpti
     @Override
     public void checkConfiguration() throws RuntimeConfigurationException {
         var task = getTask();
-        if (task.isEmpty()) {
+        if (StringUtils.isEmpty(task)) {
             throw new RuntimeConfigurationError("Task is not set");
         }
     }
