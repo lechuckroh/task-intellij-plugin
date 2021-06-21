@@ -1,10 +1,27 @@
 <idea-plugin>
     <id>lechuck.intellij-plugin.task</id>
     <name>Taskfile</name>
-    <vendor email="lechuckroh@gmail.com" url="https://github.com/lechuckroh">LechuckRoh</vendor>
+    <vendor email="lechuckroh@gmail.com" url="https://github.com/lechuckroh/task-intellij-plugin">LechuckRoh</vendor>
 
     <description><![CDATA[
     <code>Taskfile.yml</code> (<a href="https://taskfile.dev">Task</a>) support in Run/Debug configuration
+
+    <h3>Requirements</h3>
+    <ul>
+      <li>Install <code>task</code>. See <a href="https://taskfile.dev/#/installation">here</a></li>
+      <li>Make sure <code>task</code> command is in your <code>PATH</code></li>
+    </ul>
+
+    <h3>Usage</h3>
+    <ol>
+      <li>Open 'Run/Debug Configurations'</li>
+      <li>Add 'Taskfile'</li>
+        <ul>
+          <li>Taskfile: Select <code>Taskfile.yml</code> file to use.</li>
+          <li>Task: Input task name to run.</li>
+        </ul>
+    </ol>
+
     ]]></description>
 
     <!-- please see https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html
