@@ -39,7 +39,7 @@ class TaskRunConfiguration extends RunConfigurationBase<TaskRunConfigurationOpti
 
     @Override
     public @NotNull SettingsEditor<? extends RunConfiguration> getConfigurationEditor() {
-        return new TaskSettingsEditor();
+        return new TaskSettingsEditor(this.getProject());
     }
 
     @Override

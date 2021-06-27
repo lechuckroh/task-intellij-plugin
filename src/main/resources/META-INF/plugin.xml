@@ -24,6 +24,13 @@
 
     ]]></description>
 
+    <change-notes><![CDATA[
+    v1.0.2
+    <ul>
+      <li>task autoCompletion</li>
+    </ul>
+    ]]></change-notes>
+
     <!-- please see https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html
          on how to target different products -->
     <depends>com.intellij.modules.platform</depends>
