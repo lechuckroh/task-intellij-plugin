@@ -1,6 +1,7 @@
 package lechuck.intellij;
 
 import com.intellij.execution.Executor;
+import com.intellij.execution.configuration.EnvironmentVariablesData;
 import com.intellij.execution.configurations.*;
 import com.intellij.execution.runners.ExecutionEnvironment;
 import com.intellij.openapi.options.SettingsEditor;
@@ -35,6 +36,22 @@ class TaskRunConfiguration extends RunConfigurationBase<TaskRunConfigurationOpti
 
     public void setTask(String task) {
         getOptions().setTask(task);
+    }
+
+    public String getArguments() {
+        return getOptions().getArguments();
+    }
+
+    public void setArguments(String arguments) {
+        getOptions().setArguments(arguments);
+    }
+
+    public EnvironmentVariablesData getEnvironments() {
+        return getOptions().getEnvironments();
+    }
+
+    public void setEnvironments(EnvironmentVariablesData env) {
+        getOptions().setEnvironments(env);
     }
 
     @Override

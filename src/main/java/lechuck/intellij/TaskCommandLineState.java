@@ -7,6 +7,7 @@ import com.intellij.execution.process.ProcessHandler;
 import com.intellij.execution.process.ProcessHandlerFactory;
 import com.intellij.execution.process.ProcessTerminatedListener;
 import com.intellij.execution.runners.ExecutionEnvironment;
+import lechuck.intellij.util.RegexUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -46,6 +47,14 @@ class TaskCommandLineState extends CommandLineState {
 
         // task
         cmd.add(options.getTask());
+
+        // arguments
+        var arguments = options.getArguments();
+        var argumentList = RegexUtil.splitBySpacePreservingQuotes(arguments);
+        if (!argumentList.isEmpty()) {
+            cmd.add("--");
+            cmd.addAll(argumentList);
+        }
 
         // environment variables
         var envMap = new HashMap<String, String>();
