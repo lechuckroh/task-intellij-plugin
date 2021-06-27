@@ -1,0 +1,27 @@
+on:
+  push:
+    branches:
+      - "!*"
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set version
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Setup JDK
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '11'
+          check-latest: true
+
+      - name: Publish
+        run: ./gradlew clean publishPlugin
+        env:
+          ORG_GRADLE_PROJECT_intellijPublishToken: ${{ secrets.PUBLISH_TOKEN }}
