@@ -22,6 +22,14 @@ class TaskRunConfiguration extends RunConfigurationBase<TaskRunConfigurationOpti
         return (TaskRunConfigurationOptions) super.getOptions();
     }
 
+    public String getTaskPath() {
+        return getOptions().getTaskPath();
+    }
+
+    public void setTaskPath(String path) {
+        getOptions().setTaskPath(path);
+    }
+
     public String getTaskfile() {
         return getOptions().getTaskfile();
     }

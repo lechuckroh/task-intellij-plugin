@@ -36,7 +36,14 @@ class TaskCommandLineState extends CommandLineState {
         var options = cfg.getOptions();
 
         var cmd = new ArrayList<String>();
-        cmd.add("task");
+
+        // taskPath
+        var taskPath = options.getTaskPath();
+        if (taskPath == null || taskPath.isEmpty()) {
+            cmd.add("task");
+        } else {
+            cmd.add(taskPath);
+        }
 
         // taskfile
         var taskfile = options.getTaskfile();

@@ -8,11 +8,20 @@ import com.intellij.openapi.components.StoredPropertyBase;
 import java.util.Map;
 
 public class TaskRunConfigurationOptions extends RunConfigurationOptions {
+    private final StoredProperty<String> taskPath = string("").provideDelegate(this, "taskPath");
     private final StoredProperty<String> taskfile = string("").provideDelegate(this, "taskfile");
     private final StoredProperty<String> task = string("").provideDelegate(this, "task");
     private final StoredProperty<String> arguments = string("").provideDelegate(this, "arguments");
     private final StoredPropertyBase<Map<String, String>> mapStoredPropertyBase = map();
     private final StoredProperty<Map<String, String>> environments = mapStoredPropertyBase.provideDelegate(this, "environments");
+
+    public String getTaskPath() {
+        return taskPath.getValue(this);
+    }
+
+    public void setTaskPath(String taskPath) {
+        this.taskPath.setValue(this, taskPath);
+    }
 
     public String getTaskfile() {
         return taskfile.getValue(this);

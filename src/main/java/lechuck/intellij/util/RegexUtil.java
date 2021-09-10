@@ -7,6 +7,9 @@ import java.util.regex.Pattern;
 public class RegexUtil {
 
     public static List<String> splitBySpacePreservingQuotes(String str) {
+        if (str == null) {
+            return List.of();
+        }
         var matcher = Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(str);
         var result = new ArrayList<String>();
         while (matcher.find()) {

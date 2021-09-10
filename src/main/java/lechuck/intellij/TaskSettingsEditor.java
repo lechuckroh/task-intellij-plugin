@@ -35,6 +35,7 @@ import java.util.Map;
 public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
     private JPanel panel;
     private final Project project;
+    private final TextFieldWithBrowseButton taskExecutableField;
     private final TextFieldWithBrowseButton filenameField;
     private final TextFieldWithAutoCompletion.StringsCompletionProvider taskCompletionProvider;
     private final TextFieldWithAutoCompletion<String> taskField;
@@ -45,12 +46,14 @@ public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
 
     public TaskSettingsEditor(@NotNull Project project) {
         this.project = project;
+        this.taskExecutableField = new TextFieldWithBrowseButton();
         this.filenameField = new TextFieldWithBrowseButton();
         this.taskCompletionProvider = new TextFieldWithAutoCompletion.StringsCompletionProvider(List.of(), null);
         this.taskField = new TextFieldWithAutoCompletion<>(project, taskCompletionProvider, true, "");
         this.argumentsField = new ExpandableTextField();
         this.envVarsComponent = new EnvironmentVariablesComponent();
 
+        this.taskExecutableField.addBrowseFolderListener("Task Executable", "Select task executable to use", project, new TaskExecutableFileChooserDescriptor());
         this.filenameField.addBrowseFolderListener("Taskfile", "Select Taskfile.yml to run", project, new TaskfileFileChooserDescriptor());
         this.filenameField.getTextField().getDocument().addDocumentListener(new DocumentAdapter() {
             @Override
@@ -86,6 +89,7 @@ public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
 
     @Override
     protected void resetEditorFrom(TaskRunConfiguration cfg) {
+        taskExecutableField.setText(cfg.getTaskPath());
         filenameField.setText(cfg.getTaskfile());
         taskField.setText(cfg.getTask());
         argumentsField.setText(cfg.getArguments());
@@ -94,6 +98,7 @@ public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
 
     @Override
     protected void applyEditorTo(@NotNull TaskRunConfiguration cfg) {
+        cfg.setTaskPath(taskExecutableField.getText());
         cfg.setTaskfile(filenameField.getText());
         cfg.setTask(taskField.getText());
         cfg.setArguments(argumentsField.getText());
@@ -108,6 +113,7 @@ public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
                     .setAlignLabelOnRight(false)
                     .setHorizontalGap(UIUtil.DEFAULT_HGAP)
                     .setVerticalGap(UIUtil.DEFAULT_VGAP)
+                    .addLabeledComponent("Task executable", taskExecutableField)
                     .addLabeledComponent("Taskfile", filenameField)
                     .addLabeledComponent("Task", taskField)
                     .addComponent(LabeledComponent.create(argumentsField, "CLI arguments"))
@@ -129,9 +135,10 @@ public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
                     .createPopup()
                     .showUnderneathOf(button);
         });
-        var panel = new JPanel(new BorderLayout());
-        panel.add(textAccessor, BorderLayout.CENTER);
-        panel.add(button, BorderLayout.EAST);
-        return panel;
+
+        var p = new JPanel(new BorderLayout());
+        p.add(textAccessor, BorderLayout.CENTER);
+        p.add(button, BorderLayout.EAST);
+        return p;
     }
 }

@@ -9,6 +9,7 @@ public class RegexUtilTest {
 
     @Test
     public void testSplitBySpacePreservingQuotes() {
+        assertEquals(List.of(), RegexUtil.splitBySpacePreservingQuotes(null));
         assertEquals(List.of(), RegexUtil.splitBySpacePreservingQuotes(""));
         assertEquals(List.of("a", "b"), RegexUtil.splitBySpacePreservingQuotes("a b"));
         assertEquals(List.of("a", "a b"), RegexUtil.splitBySpacePreservingQuotes("a  \"a b\""));
