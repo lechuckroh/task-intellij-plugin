@@ -7,6 +7,8 @@ import com.intellij.openapi.components.StoredPropertyBase;
 
 import java.util.Map;
 
+import static org.apache.commons.lang3.StringUtils.defaultIfEmpty;
+
 public class TaskRunConfigurationOptions extends RunConfigurationOptions {
     private final StoredProperty<String> taskPath = string("").provideDelegate(this, "taskPath");
     private final StoredProperty<String> taskfile = string("").provideDelegate(this, "taskfile");
@@ -16,35 +18,35 @@ public class TaskRunConfigurationOptions extends RunConfigurationOptions {
     private final StoredProperty<Map<String, String>> environments = mapStoredPropertyBase.provideDelegate(this, "environments");
 
     public String getTaskPath() {
-        return taskPath.getValue(this);
+        return defaultIfEmpty(taskPath.getValue(this), "");
     }
 
     public void setTaskPath(String taskPath) {
-        this.taskPath.setValue(this, taskPath);
+        this.taskPath.setValue(this, defaultIfEmpty(taskPath, ""));
     }
 
     public String getTaskfile() {
-        return taskfile.getValue(this);
+        return defaultIfEmpty(taskfile.getValue(this), "");
     }
 
     public void setTaskfile(String taskfile) {
-        this.taskfile.setValue(this, taskfile);
+        this.taskfile.setValue(this, defaultIfEmpty(taskfile, ""));
     }
 
     public String getTask() {
-        return task.getValue(this);
+        return defaultIfEmpty(task.getValue(this), "");
     }
 
     public void setTask(String task) {
-        this.task.setValue(this, task);
+        this.task.setValue(this, defaultIfEmpty(task, ""));
     }
 
     public String getArguments() {
-        return arguments.getValue(this);
+        return defaultIfEmpty(arguments.getValue(this), "");
     }
 
     public void setArguments(String arguments) {
-        this.arguments.setValue(this, arguments);
+        this.arguments.setValue(this, defaultIfEmpty(arguments, ""));
     }
 
     public EnvironmentVariablesData getEnvironments() {

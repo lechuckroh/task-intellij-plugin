@@ -27,7 +27,7 @@
     ]]></description>
 
     <change-notes><![CDATA[
-    v1.0.3
+    v1.1.0
     <ul>
       <li>add task executable path</li>
       <li>add CLI arguments</li>

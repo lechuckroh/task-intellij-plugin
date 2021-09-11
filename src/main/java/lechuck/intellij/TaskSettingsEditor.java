@@ -32,6 +32,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.commons.lang3.StringUtils.defaultIfEmpty;
+
 public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
     private JPanel panel;
     private final Project project;
@@ -89,10 +91,10 @@ public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
 
     @Override
     protected void resetEditorFrom(TaskRunConfiguration cfg) {
-        taskExecutableField.setText(cfg.getTaskPath());
-        filenameField.setText(cfg.getTaskfile());
-        taskField.setText(cfg.getTask());
-        argumentsField.setText(cfg.getArguments());
+        taskExecutableField.setText(defaultIfEmpty(cfg.getTaskPath(), ""));
+        filenameField.setText(defaultIfEmpty(cfg.getTaskfile(), ""));
+        taskField.setText(defaultIfEmpty(cfg.getTask(), ""));
+        argumentsField.setText(defaultIfEmpty(cfg.getArguments(), ""));
         envVarsComponent.setEnvData(cfg.getEnvironments());
     }
 
