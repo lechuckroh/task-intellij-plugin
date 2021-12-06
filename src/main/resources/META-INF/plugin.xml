@@ -27,6 +27,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    v1.2.0
+    <ul>
+      <li>Support for 2021.3 Jetbrains releases</li>
+    </ul>
     v1.1.0
     <ul>
       <li>add task executable path</li>
