@@ -8,6 +8,7 @@ public class TaskExecutableFileChooserDescriptor extends FileChooserDescriptor {
     public TaskExecutableFileChooserDescriptor() {
         super(true, false, false, false, false, false);
 
+        //noinspection DialogTitleCapitalization
         setTitle("Select task executable");
     }
 

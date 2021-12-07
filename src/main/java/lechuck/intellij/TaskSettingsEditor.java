@@ -124,6 +124,8 @@ public class TaskSettingsEditor extends SettingsEditor<TaskRunConfiguration> {
         return panel;
     }
 
+    // TODO remove it?
+    @SuppressWarnings("unused")
     private JComponent createComponentWithMacroBrowse(TextFieldWithBrowseButton textAccessor) {
         var button = new FixedSizeButton(textAccessor);
         button.setIcon(AllIcons.Actions.ListFiles);
