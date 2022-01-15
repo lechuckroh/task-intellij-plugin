@@ -9,7 +9,7 @@ IntelliJ Run configuration plugin for [Task](https://taskfile.dev/).
 ## Requirements
 
 * Install `task`. See [here](https://taskfile.dev/#/installation)
-* JDK 11 to build from source
+* JDK 8 or higher to build from source
 
 ## Install from JetBrains Plugin Marketplace
 
@@ -29,5 +29,9 @@ Install [Taskfile Plugin](https://plugins.jetbrains.com/plugin/17058-taskfile) b
 
 1. Open 'Run/Debug Configurations'.
 2. Add `Taskfile`:
+   * Task executable: Select `task` executable to run. Set empty to run `task` in `$PATH`.
    * Taskfile: Select `Taskfile.yml` file to use.
    * Task: Input task name to run.
+   * CLI arguments: Input [CLI arguments](https://taskfile.dev/#/usage?id=forwarding-cli-arguments-to-commands) to use.
+   * Working directory
+   * Environment variables

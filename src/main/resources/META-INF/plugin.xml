@@ -27,6 +27,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    v1.3.0
+    <ul>
+        <li>add working directory</li>
+        <li>add environment variables</li>
+    </ul>
     v1.2.0
     <ul>
       <li>Support for 2021.3 Jetbrains releases</li>

@@ -3,4 +3,10 @@
 version: '3'
 
 tasks:
-  runIde: ./gradlew runIde
+  build:
+    cmds:
+      - ./gradlew build
+
+  runIde:
+    cmds:
+      - ./gradlew runIde
