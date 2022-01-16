@@ -11,6 +11,7 @@ import com.intellij.openapi.components.PathMacroManager
 import com.intellij.openapi.project.Project
 import com.intellij.util.EnvironmentUtil
 import com.intellij.util.getOrCreate
+import lechuck.intellij.util.StringUtil.splitVars
 import org.jdom.Element
 import java.io.File
 
@@ -23,6 +24,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
     var arguments = ""
     var workingDirectory = ""
     var environmentVariables: EnvironmentVariablesData = EnvironmentVariablesData.DEFAULT
+    var variables = ""
     var pty = false
 
     private companion object {
@@ -32,6 +34,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         const val TASK = "task"
         const val WORKING_DIRECTORY = "workingDirectory"
         const val ARGUMENTS = "arguments"
+        const val VARIABLES = "variables"
         const val PTY = "pty"
     }
 
@@ -51,6 +54,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         child.setAttribute(TASK, task)
         child.setAttribute(WORKING_DIRECTORY, workingDirectory)
         child.setAttribute(ARGUMENTS, arguments)
+        child.setAttribute(VARIABLES, variables)
         child.setAttribute(PTY, if (pty) "true" else "false")
         environmentVariables.writeExternal(child)
     }
@@ -70,6 +74,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             arguments = child.getAttributeValue(ARGUMENTS) ?: ""
             pty = child.getAttributeValue(PTY) == "true"
             environmentVariables = EnvironmentVariablesData.readExternal(child)
+            variables = child.getAttributeValue(VARIABLES) ?: ""
         }
     }
 
@@ -101,6 +106,16 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                 // task
                 if (task.isNotEmpty()) {
                     params.addParametersString(task)
+                }
+
+                // variables
+                if (variables.isNotEmpty()) {
+                    val varMap = splitVars(variables)
+                    if (varMap.isNotEmpty()) {
+                        varMap.forEach { (key, value) ->
+                            params.add("""$key="$value"""")
+                        }
+                    }
                 }
 
                 // arguments

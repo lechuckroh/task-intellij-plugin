@@ -2,6 +2,9 @@
 
 version: '3'
 
+vars:
+  TEST: test
+
 tasks:
   build:
     cmds:
@@ -10,3 +13,8 @@ tasks:
   runIde:
     cmds:
       - ./gradlew runIde
+
+  print:
+    cmds:
+      - cat Taskfile.yml
+      - echo TEST={{.TEST}} TEST2={{.TEST2}}
