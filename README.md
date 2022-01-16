@@ -34,4 +34,5 @@ Install [Taskfile Plugin](https://plugins.jetbrains.com/plugin/17058-taskfile) b
    * Task: Input task name to run.
    * CLI arguments: Input [CLI arguments](https://taskfile.dev/#/usage?id=forwarding-cli-arguments-to-commands) to use.
    * Working directory
-   * Environment variables
+   * Environment variables: See [Environment Variables](https://taskfile.dev/#/usage?id=environment-variables)
+   * Variables: See [Variables](https://taskfile.dev/#/usage?id=variables)
