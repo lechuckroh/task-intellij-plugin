@@ -21,10 +21,10 @@ import com.intellij.ui.TextFieldWithAutoCompletion
 import com.intellij.ui.components.fields.ExpandableTextField
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.UIUtil
+import lechuck.intellij.vars.VariablesComponent
 import java.awt.BorderLayout
 import javax.swing.JComponent
 import javax.swing.JPanel
-import javax.swing.JTextField
 import javax.swing.event.DocumentEvent
 
 class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<TaskRunConfiguration>() {
@@ -35,7 +35,7 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
     private val taskField = TextFieldWithAutoCompletion(project, taskCompletionProvider, true, "")
     private val argumentsField = ExpandableTextField()
     private val envVarsComponent = EnvironmentVariablesComponent()
-    private val variablesField = JTextField()
+    private val varsComponent = VariablesComponent()
     private val workingDirectoryField = TextFieldWithBrowseButton()
     private val mapper = ObjectMapper(YAMLFactory()).configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
@@ -50,7 +50,7 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
             .addComponent(LabeledComponent.create(argumentsField, "CLI arguments"))
             .addLabeledComponent("Working directory", createComponentWithMacroBrowse(workingDirectoryField))
             .addComponent(envVarsComponent)
-            .addLabeledComponent("Variables", variablesField)
+            .addComponent(varsComponent)
             .panel
     }
 
@@ -116,7 +116,7 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
         taskField.text = cfg.task
         argumentsField.text = cfg.arguments
         envVarsComponent.envData = cfg.environmentVariables
-        variablesField.text = cfg.variables
+        varsComponent.varData = cfg.variables
         workingDirectoryField.text = cfg.workingDirectory
 
         updateTargetCompletion(cfg.filename)
@@ -128,7 +128,7 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
         cfg.task = taskField.text
         cfg.arguments = argumentsField.text
         cfg.environmentVariables = envVarsComponent.envData
-        cfg.variables = variablesField.text
+        cfg.variables = varsComponent.varData
         cfg.workingDirectory = workingDirectoryField.text
     }
 

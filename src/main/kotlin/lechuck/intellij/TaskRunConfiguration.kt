@@ -12,6 +12,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.util.EnvironmentUtil
 import com.intellij.util.getOrCreate
 import lechuck.intellij.util.StringUtil.splitVars
+import lechuck.intellij.vars.VariablesData
 import org.jdom.Element
 import java.io.File
 
@@ -24,7 +25,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
     var arguments = ""
     var workingDirectory = ""
     var environmentVariables: EnvironmentVariablesData = EnvironmentVariablesData.DEFAULT
-    var variables = ""
+    var variables: VariablesData = VariablesData.DEFAULT
     var pty = false
 
     private companion object {
@@ -34,7 +35,6 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         const val TASK = "task"
         const val WORKING_DIRECTORY = "workingDirectory"
         const val ARGUMENTS = "arguments"
-        const val VARIABLES = "variables"
         const val PTY = "pty"
     }
 
@@ -54,30 +54,40 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         child.setAttribute(TASK, task)
         child.setAttribute(WORKING_DIRECTORY, workingDirectory)
         child.setAttribute(ARGUMENTS, arguments)
-        child.setAttribute(VARIABLES, variables)
         child.setAttribute(PTY, if (pty) "true" else "false")
         environmentVariables.writeExternal(child)
+        variables.writeExternal(child)
     }
 
     override fun readExternal(element: Element) {
         super.readExternal(element)
 
-        // support v1 format
         readExternalV1(element)
 
-        val child = element.getChild(TASKFILE)
-        if (child != null) {
-            taskPath = child.getAttributeValue(TASKPATH) ?: ""
-            filename = child.getAttributeValue(FILENAME) ?: ""
-            task = child.getAttributeValue(TASK) ?: ""
-            workingDirectory = child.getAttributeValue(WORKING_DIRECTORY) ?: ""
-            arguments = child.getAttributeValue(ARGUMENTS) ?: ""
-            pty = child.getAttributeValue(PTY) == "true"
-            environmentVariables = EnvironmentVariablesData.readExternal(child)
-            variables = child.getAttributeValue(VARIABLES) ?: ""
+        val taskfileElem = element.getChild(TASKFILE)
+        if (taskfileElem != null) {
+            readExternalV13(taskfileElem)
+
+            taskPath = taskfileElem.getAttributeValue(TASKPATH) ?: ""
+            filename = taskfileElem.getAttributeValue(FILENAME) ?: ""
+            task = taskfileElem.getAttributeValue(TASK) ?: ""
+            workingDirectory = taskfileElem.getAttributeValue(WORKING_DIRECTORY) ?: ""
+            arguments = taskfileElem.getAttributeValue(ARGUMENTS) ?: ""
+            pty = taskfileElem.getAttributeValue(PTY) == "true"
+            environmentVariables = EnvironmentVariablesData.readExternal(taskfileElem)
+
+            val variablesRead = VariablesData.readExternal(taskfileElem)
+            variables = if (variables.vars.isEmpty()) {
+                variablesRead
+            } else {
+                VariablesData.create(variablesRead.vars + variables.vars)
+            }
         }
     }
 
+    /**
+     * read v1.0 format
+     */
     private fun readExternalV1(element: Element) {
         val list = element.getChildren("option")
         val valueMap = list.associate { option: Element ->
@@ -89,6 +99,17 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         task = valueMap["task"] ?: ""
         filename = valueMap["taskfile"] ?: ""
         arguments = valueMap["arguments"] ?: ""
+    }
+
+    /**
+     * read v1.3 format
+     */
+    private fun readExternalV13(taskfileElem: Element) {
+        val variablesText = taskfileElem.getAttributeValue("variables", "")
+        val vars = splitVars(variablesText)
+        if (vars.isNotEmpty()) {
+            variables = VariablesData.create(vars)
+        }
     }
 
     override fun getState(executor: Executor, executionEnvironment: ExecutionEnvironment): RunProfileState {
@@ -109,13 +130,9 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                 }
 
                 // variables
-                if (variables.isNotEmpty()) {
-                    val varMap = splitVars(variables)
-                    if (varMap.isNotEmpty()) {
-                        varMap.forEach { (key, value) ->
-                            params.add("""$key="$value"""")
-                        }
-                    }
+                val vars = variables.vars.toMutableMap()
+                vars.forEach { (key, value) ->
+                    params.add("$key=\"$value\"")
                 }
 
                 // arguments
