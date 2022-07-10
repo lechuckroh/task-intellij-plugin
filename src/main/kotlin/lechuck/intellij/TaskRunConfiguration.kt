@@ -155,7 +155,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
 
                 // build cmd
                 val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
-                val cmdLine = if (pty) PtyCommandLine() else GeneralCommandLine()
+                val cmdLine = if (pty) PtyCommandLine().withConsoleMode(false) else GeneralCommandLine()
                 val cmd = cmdLine
                     .withExePath(command[0])
                     .withWorkDirectory(workDirectory)
