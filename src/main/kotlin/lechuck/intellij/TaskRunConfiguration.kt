@@ -4,17 +4,22 @@ import com.intellij.execution.Executor
 import com.intellij.execution.configuration.EnvironmentVariablesData
 import com.intellij.execution.configurations.*
 import com.intellij.execution.process.ColoredProcessHandler
+import com.intellij.execution.process.OSProcessHandler
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.components.PathMacroManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.SystemInfo
 import com.intellij.util.EnvironmentUtil
 import com.intellij.util.getOrCreate
+import com.intellij.util.io.BaseDataReader.SleepingPolicy
+import com.intellij.util.io.BaseOutputReader
 import lechuck.intellij.util.StringUtil.splitVars
 import lechuck.intellij.vars.VariablesData
 import org.jdom.Element
 import java.io.File
+
 
 class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, name: String) :
     LocatableConfigurationBase<RunProfileState>(project, factory, name) {
@@ -151,7 +156,12 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                 // environment variables
                 val parentEnvs =
                     if (environmentVariables.isPassParentEnvs) EnvironmentUtil.getEnvironmentMap() else emptyMap<String, String>()
-                val envs = parentEnvs + environmentVariables.envs.toMutableMap()
+                val mutableEnvs = environmentVariables.envs.toMutableMap()
+                if (!SystemInfo.isWindows) {
+                    mutableEnvs["TERM"] = "xterm-256color"
+                }
+                val envs = parentEnvs + mutableEnvs
+
 
                 // build cmd
                 val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
@@ -163,11 +173,31 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                     .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.NONE)
                     .withParameters(command.slice(1 until command.size))
 
-                val processHandler = ColoredProcessHandler(cmd)
-                processHandler.setShouldKillProcessSoftly(true)
-                ProcessTerminatedListener.attach(processHandler)
-                return processHandler
+                return createProcessHandler(cmd)
             }
+        }
+    }
+
+    private fun createProcessHandler(cmd: GeneralCommandLine): ProcessHandler {
+        if (pty) {
+            return object : OSProcessHandler(cmd) {
+                override fun readerOptions(): BaseOutputReader.Options {
+                    return object : BaseOutputReader.Options() {
+                        override fun policy(): SleepingPolicy {
+                            return SleepingPolicy.BLOCKING
+                        }
+
+                        override fun splitToLines(): Boolean {
+                            return false
+                        }
+                    }
+                }
+            }
+        } else {
+            val processHandler = ColoredProcessHandler(cmd)
+            processHandler.setShouldKillProcessSoftly(true)
+            ProcessTerminatedListener.attach(processHandler)
+            return processHandler
         }
     }
 }
