@@ -18,3 +18,8 @@ tasks:
     cmds:
       - cat Taskfile.yml
       - echo TEST={{.TEST}} TEST2={{.TEST2}}
+
+  sudo_print:
+    cmds:
+      - sudo echo TEST={{.TEST}} TEST2={{.TEST2}}
+    interactive: true
