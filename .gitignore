@@ -1,5 +1,7 @@
 .idea/
-out/
 .gradle/
 .run/
-build/
+.vscode/
+/bin
+/build
+/out
