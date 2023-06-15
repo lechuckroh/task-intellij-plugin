@@ -8,7 +8,7 @@ apply plugin: 'kotlin'
 apply plugin: 'org.jetbrains.intellij'
 
 group 'lechuck'
-version '1.5.0-beta'
+version '1.5.0'
 
 sourceCompatibility = 17
 targetCompatibility = 17
