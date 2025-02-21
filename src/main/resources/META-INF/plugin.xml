@@ -63,9 +63,13 @@
     <!-- please see https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html
          on how to target different products -->
     <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <configurationType implementation="lechuck.intellij.TaskRunConfigurationType"/>
+        <runLineMarkerContributor
+                language="yaml"
+                implementationClass="lechuck.intellij.TaskLineMarkerProvider"/>
     </extensions>
 
     <actions>
