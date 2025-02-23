@@ -15,10 +15,15 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.jetbrains.yaml.psi.YAMLMapping
 
 class TaskLineMarkerProvider : RunLineMarkerContributor() {
+    companion object {
+        val TASKFILE_PATTERN = Regex("taskfile(?:\\.dist)?\\.ya?ml", RegexOption.IGNORE_CASE)
+    }
+
     override fun getInfo(element: PsiElement): Info? {
-        // Only process YAML files named Taskfile.yml or taskfile.yml
+        // Only process YAML files named: Taskfile.yml, taskfile.yml, Taskfile.yaml, taskfile.yaml,
+        // Taskfile.dist.yml, taskfile.dist.yml, Taskfile.dist.yaml, taskfile.dist.yaml
         val file = element.containingFile
-        if (!file.name.lowercase().matches(Regex("taskfile\\.ya?ml"))) {
+        if (!file.name.matches(TASKFILE_PATTERN)) {
             return null
         }
 
@@ -49,56 +54,45 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
         return Info(
             AllIcons.Actions.Execute,
             { "Run Task: $taskName" },
-            TaskRunAction(taskName, element.project)
+            TaskRunAction(taskName, element.project, file.virtualFile.path)
         )
     }
 
     private class TaskRunAction(
         private val taskName: String,
-        private val project: Project
+        private val project: Project,
+        private val taskfilePath: String
     ) : AnAction() {
         override fun actionPerformed(e: AnActionEvent) {
             val runManager = RunManagerImpl.getInstanceImpl(project)
             val configurationType = TaskRunConfigurationType()
 
-            // Try to find existing configuration first
             val configurationName = "Task: $taskName"
             val existingConfiguration = runManager.findConfigurationByName(configurationName)
 
             val configuration = if (existingConfiguration != null) {
                 existingConfiguration
             } else {
-                // Create new configuration
                 val factory = configurationType.configurationFactories[0]
                 runManager.createConfiguration(configurationName, factory)
             }
 
-            // Configure the task
             val runConfig = configuration.configuration as TaskRunConfiguration
             runConfig.task = taskName
+            runConfig.filename = taskfilePath
 
-            // Set Taskfile path relative to project
-            val projectPath = project.basePath
-            if (projectPath != null) {
-                runConfig.filename = "$projectPath/Taskfile.yml"
-            }
-
-            // Add to run manager if it's a new configuration
             if (existingConfiguration == null) {
                 runManager.addConfiguration(configuration)
             }
 
-            // Set as selected configuration
             runManager.selectedConfiguration = configuration
 
-            // Execute the configuration
             try {
                 val executor = ExecutorRegistry.getInstance().getExecutorById(DefaultRunExecutor.EXECUTOR_ID)
                 if (executor != null) {
                     ExecutionEnvironmentBuilder.create(executor, configuration)?.buildAndExecute()
                 }
             } catch (ex: ExecutionException) {
-                // Handle execution error
                 ex.printStackTrace()
             }
         }
