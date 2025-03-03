@@ -29,14 +29,14 @@ public class VariablesTextFieldWithBrowseButton extends TextFieldWithBrowseButto
     public VariablesTextFieldWithBrowseButton() {
         super();
         addActionListener(e -> {
-            setVars(VariablesTable.parseVarssFromText(getText()));
+            setVars(VariablesTable.parseVarsFromText(getText()));
             createDialog().show();
         });
         getTextField().getDocument().addDocumentListener(new DocumentAdapter() {
             @Override
             protected void textChanged(@NotNull DocumentEvent e) {
                 if (!StringUtil.equals(stringifyVars(myData), getText())) {
-                    Map<String, String> textVars = VariablesTable.parseVarssFromText(getText());
+                    Map<String, String> textVars = VariablesTable.parseVarsFromText(getText());
                     myData = myData.with(textVars);
                     fireStateChanged();
                 }
@@ -98,7 +98,7 @@ public class VariablesTextFieldWithBrowseButton extends TextFieldWithBrowseButto
         }
         StringBuilder buf = new StringBuilder();
         for (Map.Entry<String, String> entry : varData.getVars().entrySet()) {
-            if (buf.length() > 0) {
+            if (!buf.isEmpty()) {
                 buf.append(";");
             }
             buf.append(StringUtil.escapeChar(entry.getKey(), ';'))

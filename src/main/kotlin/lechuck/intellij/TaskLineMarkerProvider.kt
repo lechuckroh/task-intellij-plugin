@@ -3,14 +3,14 @@ package lechuck.intellij
 import com.intellij.execution.ExecutionException
 import com.intellij.execution.ExecutorRegistry
 import com.intellij.execution.executors.DefaultRunExecutor
-import com.intellij.execution.runners.ExecutionEnvironmentBuilder
 import com.intellij.execution.impl.RunManagerImpl
+import com.intellij.execution.lineMarker.RunLineMarkerContributor
+import com.intellij.execution.runners.ExecutionEnvironmentBuilder
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
-import com.intellij.execution.lineMarker.RunLineMarkerContributor
-import com.intellij.icons.AllIcons
 import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.jetbrains.yaml.psi.YAMLMapping
 
@@ -51,11 +51,9 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
 
         // This is a task definition, create a run action
         val taskName = keyValue.keyText
-        return Info(
-            AllIcons.Actions.Execute,
-            { "Run Task: $taskName" },
-            TaskRunAction(taskName, element.project, file.virtualFile.path)
-        )
+        val icon = AllIcons.Actions.Execute
+        val actions = arrayOf(TaskRunAction(taskName, element.project, file.virtualFile.path))
+        return Info(icon, actions, { "Run Task: $taskName" })
     }
 
     private class TaskRunAction(
@@ -90,7 +88,7 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
             try {
                 val executor = ExecutorRegistry.getInstance().getExecutorById(DefaultRunExecutor.EXECUTOR_ID)
                 if (executor != null) {
-                    ExecutionEnvironmentBuilder.create(executor, configuration)?.buildAndExecute()
+                    ExecutionEnvironmentBuilder.create(executor, configuration).buildAndExecute()
                 }
             } catch (ex: ExecutionException) {
                 ex.printStackTrace()

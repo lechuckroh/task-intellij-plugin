@@ -48,8 +48,8 @@ public class VariablesTable extends ListTableWithButtons<Variable> {
     }
 
     @Override
-    protected ListTableModel createListModel() {
-        return new ListTableModel(new NameColumnInfo(), new ValueColumnInfo());
+    protected ListTableModel<Variable> createListModel() {
+        return new ListTableModel<>(new NameColumnInfo(), new ValueColumnInfo());
     }
 
     public void editVariableName(final Variable variable) {
@@ -90,7 +90,7 @@ public class VariablesTable extends ListTableWithButtons<Variable> {
 
     @Override
     protected Variable cloneElement(Variable variable) {
-        return variable.clone();
+        return new Variable(variable.getName(), variable.getValue());
     }
 
     @Override
@@ -207,7 +207,7 @@ public class VariablesTable extends ListTableWithButtons<Variable> {
             List<Variable> variables = getSelection();
             for (Variable variable : variables) {
                 if (isEmpty(variable)) continue;
-                if (sb.length() > 0) sb.append(';');
+                if (!sb.isEmpty()) sb.append(';');
                 sb.append(StringUtil.escapeChars(variable.getName(), '=', ';')).append('=')
                         .append(StringUtil.escapeChars(variable.getValue(), '=', ';'));
             }
@@ -231,7 +231,7 @@ public class VariablesTable extends ListTableWithButtons<Variable> {
             if (StringUtil.isEmpty(content)) {
                 return;
             }
-            Map<String, String> map = parseVarssFromText(content);
+            Map<String, String> map = parseVarsFromText(content);
             TableView<Variable> view = getTableView();
             if ((view.isEditing() || map.isEmpty())) {
                 int row = view.getEditingRow();
@@ -275,7 +275,7 @@ public class VariablesTable extends ListTableWithButtons<Variable> {
     }
 
     @Override
-    protected AnActionButton @NotNull [] createExtraActions() {
+    protected AnAction @NotNull [] createExtraToolbarActions() {
         AnActionButton copyButton = new AnActionButton("Copy", AllIcons.Actions.Copy) {
             @Override
             public void actionPerformed(@NotNull AnActionEvent e) {
@@ -307,7 +307,7 @@ public class VariablesTable extends ListTableWithButtons<Variable> {
     }
 
     @NotNull
-    public static Map<String, String> parseVarssFromText(String content) {
+    public static Map<String, String> parseVarsFromText(String content) {
         Map<String, String> result = new LinkedHashMap<>();
         if (content != null && content.contains("=")) {
             boolean legacyFormat = content.contains("\n");

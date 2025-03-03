@@ -1,14 +1,19 @@
 package lechuck.intellij
 
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.jetbrains.yaml.psi.YAMLKeyValue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.JUnit4
 
+@RunWith(JUnit4::class)
 class TaskLineMarkerProviderTest : BasePlatformTestCase() {
     private val provider = TaskLineMarkerProvider()
 
+    @Test
     fun testTaskfilePatternMatching() {
         val validNames = listOf(
             "Taskfile.yml",
@@ -37,6 +42,7 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
         }
     }
 
+    @Test
     fun testGetInfoForValidTaskKey() {
         val yamlFile = """
             tasks:
@@ -54,6 +60,7 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
         assertEquals("Run Task: test", info?.tooltipProvider?.apply(taskKey))
     }
 
+    @Test
     fun testGetInfoForNonTaskKey() {
         val yamlFile = """
             version: '3'

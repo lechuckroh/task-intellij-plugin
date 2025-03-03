@@ -19,7 +19,7 @@ Install [Taskfile Plugin](https://plugins.jetbrains.com/plugin/17058-taskfile) b
 
 1. Build source
    ```bash
-   $ ./gradlew build
+   $ ./gradlew buildPlugin
    ```
 2. Copy `build/distributions/task-intellij-plugin-*.zip` file.
 3. In IntelliJ IDEA Preferences -> Plugin -> Install Plugin from Disk -> Select file from step 2. \
