@@ -1,11 +1,12 @@
 package lechuck.intellij.vars;
 
-import com.intellij.openapi.util.*;
-import org.jdom.Element;
+import com.intellij.openapi.components.PersistentStateComponent;
+import com.intellij.openapi.util.NlsContexts;
 import org.jetbrains.annotations.NonNls;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class Variable implements JDOMExternalizable, Cloneable {
+public class Variable implements PersistentStateComponent<Variable> {
     public String NAME;
     public String VALUE;
 
@@ -39,21 +40,13 @@ public class Variable implements JDOMExternalizable, Cloneable {
     }
 
     @Override
-    public void readExternal(Element element) throws InvalidDataException {
-        DefaultJDOMExternalizer.readExternal(this, element);
+    public @Nullable Variable getState() {
+        return this;
     }
 
     @Override
-    public void writeExternal(Element element) throws WriteExternalException {
-        DefaultJDOMExternalizer.writeExternal(this, element);
-    }
-
-    @Override
-    public Variable clone() {
-        try {
-            return (Variable) super.clone();
-        } catch (CloneNotSupportedException e) {
-            return null;
-        }
+    public void loadState(@NotNull Variable state) {
+        this.NAME = state.NAME;
+        this.VALUE = state.VALUE;
     }
 }

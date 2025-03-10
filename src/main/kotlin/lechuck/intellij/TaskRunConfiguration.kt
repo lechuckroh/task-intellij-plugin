@@ -48,7 +48,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
 
     override fun writeExternal(element: Element) {
         super.writeExternal(element)
-        val child = element.getOrCreate(TASKFILE)
+        val child = element.getOrCreateChild(TASKFILE)
         child.setAttribute(TASKPATH, taskPath)
         child.setAttribute(FILENAME, filename)
         child.setAttribute(TASK, task)

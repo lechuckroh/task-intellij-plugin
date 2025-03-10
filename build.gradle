@@ -1,23 +1,25 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
 plugins {
     id 'java'
-    id 'org.jetbrains.kotlin.jvm' version '1.8.22'
-    id 'org.jetbrains.intellij' version '1.14.1'
+    id 'org.jetbrains.kotlin.jvm' version '2.1.10'
+    id 'org.jetbrains.intellij' version '1.17.4'
 }
 
-apply plugin: 'kotlin'
-apply plugin: 'org.jetbrains.intellij'
+group = 'lechuck'
+version = '1.7.0'
 
-group 'lechuck'
-version '1.6.0'
-
-sourceCompatibility = 17
-targetCompatibility = 17
-
-compileKotlin {
-    kotlinOptions.jvmTarget = '17'
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
-compileTestKotlin {
-    kotlinOptions.jvmTarget = '17'
+
+tasks.withType(KotlinJvmCompile).configureEach {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
+        freeCompilerArgs.add("-opt-in=kotlin.RequiresOptIn")
+    }
 }
 
 repositories {
@@ -26,18 +28,16 @@ repositories {
 
 dependencies {
     implementation 'org.jetbrains.kotlin:kotlin-stdlib'
-    implementation 'com.fasterxml.jackson.core:jackson-core:2.15.2'
-    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.15.2'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.3'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.9.3'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.3'
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.18.3'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.3'
+    testImplementation 'junit:junit:4.13.2'
 }
 
 // See 
 // - https://github.com/JetBrains/gradle-intellij-plugin/
 // - https://jb.gg/intellij-platform-versions
 intellij {
-    version = '2023.1'
+    version = '2024.1'
     updateSinceUntilBuild = false
     plugins = ['org.jetbrains.plugins.yaml']
 }
@@ -48,13 +48,13 @@ buildSearchableOptions {
 
 patchPluginXml {
     version = project.version
-    sinceBuild = '231'
+    sinceBuild = '241'
 }
 
 publishPlugin {
     token = System.getenv('ORG_GRADLE_PROJECT_intellijPublishToken')
 }
 
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['-Xlint:deprecation']
 }

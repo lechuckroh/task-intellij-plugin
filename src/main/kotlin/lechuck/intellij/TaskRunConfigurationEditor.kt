@@ -11,6 +11,7 @@ import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.FixedSizeButton
 import com.intellij.openapi.ui.LabeledComponent
+import com.intellij.openapi.ui.TextBrowseFolderListener
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -56,17 +57,11 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
 
     init {
         taskExecutableField.addBrowseFolderListener(
-            "Task Executable",
-            "Select task executable to use",
-            project,
-            TaskExecutableFileChooserDescriptor()
+            TextBrowseFolderListener(TaskExecutableFileChooserDescriptor(), project)
         )
 
         filenameField.addBrowseFolderListener(
-            "Taskfile",
-            "Select Taskfile.yml to run",
-            project,
-            TaskfileFileChooserDescriptor()
+            TextBrowseFolderListener(TaskfileFileChooserDescriptor(), project)
         )
 
         filenameField.textField.document.addDocumentListener(object : DocumentAdapter() {
@@ -76,10 +71,7 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
         })
 
         workingDirectoryField.addBrowseFolderListener(
-            "Working Directory Chooser",
-            "Choose working directory",
-            project,
-            FileChooserDescriptorFactory.createSingleFolderDescriptor()
+            TextBrowseFolderListener(FileChooserDescriptorFactory.createSingleFolderDescriptor(), project)
         )
     }
 

@@ -1,5 +1,6 @@
-.idea/
 .gradle/
+.idea/
+.kotlin/
 .run/
 .vscode/
 /bin
