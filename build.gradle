@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
-    id 'java'
     id 'org.jetbrains.kotlin.jvm' version '2.1.10'
     id 'org.jetbrains.intellij' version '1.17.4'
 }
@@ -53,8 +52,4 @@ patchPluginXml {
 
 publishPlugin {
     token = System.getenv('ORG_GRADLE_PROJECT_intellijPublishToken')
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs += ['-Xlint:deprecation']
 }

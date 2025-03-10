@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.intellij.execution.configuration.EnvironmentVariablesComponent
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.PathMacros
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
@@ -26,6 +28,7 @@ import lechuck.intellij.vars.VariablesComponent
 import java.awt.BorderLayout
 import javax.swing.JComponent
 import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
 
 class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<TaskRunConfiguration>() {
@@ -78,25 +81,30 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
     private fun updateTargetCompletion(filename: String) {
         val file = LocalFileSystem.getInstance().findFileByPath(filename)
         if (file != null) {
-            val psiFile = PsiManager.getInstance(project).findFile(file)
-            if (psiFile != null) {
-                taskCompletionProvider.setItems(findTasks(psiFile))
-                return
+            ApplicationManager.getApplication().executeOnPooledThread {
+                val psiFile = ReadAction.compute<PsiFile?, RuntimeException> {
+                    PsiManager.getInstance(project).findFile(file)
+                }
+                val results = psiFile?.let { findTasks(it) } ?: emptyList()
+
+                SwingUtilities.invokeLater {
+                    taskCompletionProvider.setItems(results)
+                }
             }
+        } else {
+            taskCompletionProvider.setItems(emptyList())
         }
-        taskCompletionProvider.setItems(emptyList())
     }
 
     private fun findTasks(file: PsiFile): Collection<String> {
-        try {
+        return try {
             file.virtualFile.inputStream.use { `is` ->
                 val taskfile: Taskfile = mapper.readValue(`is`, Taskfile::class.java)
-                val tasks = taskfile.tasks
-                return tasks?.keys ?: emptyList()
+                taskfile.tasks?.keys ?: emptyList()
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            return emptyList()
+            emptyList()
         }
     }
 
@@ -130,9 +138,7 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
         button.addActionListener {
             JBPopupFactory.getInstance()
                 .createPopupChooserBuilder(PathMacros.getInstance().userMacroNames.toList())
-                .setItemChosenCallback { item: String ->
-                    textAccessor.text = "$$item$"
-                }
+                .setItemChosenCallback { textAccessor.text = "$$it$" }
                 .setMovable(false)
                 .setResizable(false)
                 .createPopup()
