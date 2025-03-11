@@ -237,6 +237,10 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
             override fun isEnabled(): Boolean {
                 return myPanel?.isCopyEnabled(DataContext.EMPTY_CONTEXT) == true
             }
+
+            override fun getActionUpdateThread(): ActionUpdateThread {
+                return ActionUpdateThread.EDT
+            }
         }
         val pasteButton = object : AnActionButton("Paste", AllIcons.Actions.MenuPaste) {
             override fun actionPerformed(e: AnActionEvent) {
@@ -249,6 +253,10 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
 
             override fun isVisible(): Boolean {
                 return myPanel?.isPastePossible(DataContext.EMPTY_CONTEXT) == true
+            }
+
+            override fun getActionUpdateThread(): ActionUpdateThread {
+                return ActionUpdateThread.EDT
             }
         }
         return arrayOf(copyButton, pasteButton)
