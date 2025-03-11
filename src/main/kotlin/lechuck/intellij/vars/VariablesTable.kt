@@ -266,25 +266,19 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
         fun parseVarsFromText(content: String?): Map<String, String> {
             val result: MutableMap<String, String> = LinkedHashMap()
             if (content != null && content.contains("=")) {
-                val legacyFormat = content.contains("\n")
-                val pairs: List<String>
-                if (legacyFormat) {
-                    pairs = StringUtil.split(content, "\n")
-                } else {
-                    pairs = ArrayList()
-                    var start = 0
-                    var end: Int
-                    while (true) {
-                        end = content.indexOf(";", start)
-                        if (end == -1 || start >= content.length) {
-                            if (start < content.length) {
-                                pairs.add(content.substring(start).replace("\\;", ";"))
-                            }
-                            break
+                val pairs = mutableListOf<String>()
+                var start = 0
+                var end: Int
+                while (true) {
+                    end = content.indexOf(";", start)
+                    if (end == -1 || start >= content.length) {
+                        if (start < content.length) {
+                            pairs.add(content.substring(start).replace("\\;", ";"))
                         }
-                        pairs.add(content.substring(start, end).replace("\\;", ";"))
-                        start = end + 1
+                        break
                     }
+                    pairs.add(content.substring(start, end).replace("\\;", ";"))
+                    start = end + 1
                 }
                 for (pair in pairs) {
                     var pos = pair.indexOf('=')

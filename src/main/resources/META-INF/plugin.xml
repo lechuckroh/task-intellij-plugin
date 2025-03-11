@@ -29,11 +29,12 @@
     <change-notes><![CDATA[
     v1.7.0
     <ul>
-        <li>Change minimum requirements: 2024.1</li>
+        <li>change minimum requirements: 2024.1</li>
+        <li>fix deprecated API usages</li>
     </ul>
     v1.6.0
     <ul>
-        <li>Add shortcut to create a new configuration in Taskfile.yml file</li>
+        <li>add shortcut to create a new configuration in Taskfile.yml file</li>
     </ul>
     v1.5.0
     <ul>
