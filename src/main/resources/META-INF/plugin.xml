@@ -27,7 +27,7 @@
     ]]></description>
 
     <change-notes><![CDATA[
-    v1.7.0
+    v1.7.1
     <ul>
         <li>change minimum requirements: 2024.1</li>
         <li>fix deprecated API usages</li>
