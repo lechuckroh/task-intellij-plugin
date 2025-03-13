@@ -1,9 +1,9 @@
 package lechuck.intellij
 
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,41 +15,43 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
 
     @Test
     fun testTaskfilePatternMatching() {
-        val validNames = listOf(
-            "Taskfile.yml",
-            "taskfile.yml",
-            "Taskfile.yaml",
-            "taskfile.yaml",
-            "Taskfile.dist.yml",
-            "taskfile.dist.yml",
-            "Taskfile.dist.yaml",
-            "taskfile.dist.yaml"
-        )
+        val validNames =
+            listOf(
+                "Taskfile.yml",
+                "taskfile.yml",
+                "Taskfile.yaml",
+                "taskfile.yaml",
+                "Taskfile.dist.yml",
+                "taskfile.dist.yml",
+                "Taskfile.dist.yaml",
+                "taskfile.dist.yaml",
+            )
 
-        val invalidNames = listOf(
-            "other.yml",
-            "taskfile.json",
-            "taskfile.yaml.bak",
-            "mytaskfile.yml"
-        )
+        val invalidNames =
+            listOf("other.yml", "taskfile.json", "taskfile.yaml.bak", "mytaskfile.yml")
 
         validNames.forEach { name ->
             assertTrue("Should match: $name", name.matches(TaskLineMarkerProvider.TASKFILE_PATTERN))
         }
 
         invalidNames.forEach { name ->
-            assertFalse("Should not match: $name", name.matches(TaskLineMarkerProvider.TASKFILE_PATTERN))
+            assertFalse(
+                "Should not match: $name",
+                name.matches(TaskLineMarkerProvider.TASKFILE_PATTERN),
+            )
         }
     }
 
     @Test
     fun testGetInfoForValidTaskKey() {
-        val yamlFile = """
+        val yamlFile =
+            """
             tasks:
               test:
                 cmds:
                   - echo "test"
-        """.trimIndent()
+        """
+                .trimIndent()
 
         val file = myFixture.configureByText("Taskfile.yml", yamlFile)
         val taskKey = findTaskKey(file, "test")
@@ -62,13 +64,15 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
 
     @Test
     fun testGetInfoForNonTaskKey() {
-        val yamlFile = """
+        val yamlFile =
+            """
             version: '3'
             tasks:
               test:
                 cmds:
                   - echo "test"
-        """.trimIndent()
+        """
+                .trimIndent()
 
         val file = myFixture.configureByText("Taskfile.yml", yamlFile)
         val versionKey = findKey(file, "version")

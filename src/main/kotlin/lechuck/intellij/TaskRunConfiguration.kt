@@ -10,11 +10,10 @@ import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.components.PathMacroManager
 import com.intellij.openapi.project.Project
 import com.intellij.util.EnvironmentUtil
-import com.intellij.util.getOrCreate
+import java.io.File
 import lechuck.intellij.util.StringUtil.splitVars
 import lechuck.intellij.vars.VariablesData
 import org.jdom.Element
-import java.io.File
 
 class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, name: String) :
     LocatableConfigurationBase<RunProfileState>(project, factory, name) {
@@ -77,33 +76,31 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             environmentVariables = EnvironmentVariablesData.readExternal(taskfileElem)
 
             val variablesRead = VariablesData.readExternal(taskfileElem)
-            variables = if (variables.vars.isEmpty()) {
-                variablesRead
-            } else {
-                VariablesData.create(variablesRead.vars + variables.vars)
-            }
+            variables =
+                if (variables.vars.isEmpty()) {
+                    variablesRead
+                } else {
+                    VariablesData.create(variablesRead.vars + variables.vars)
+                }
         }
     }
 
-    /**
-     * read v1.0 format
-     */
+    /** read v1.0 format */
     private fun readExternalV1(element: Element) {
         val list = element.getChildren("option")
-        val valueMap = list.associate { option: Element ->
-            val name = option.getAttributeValue("name")
-            val value = option.getAttributeValue("value")
-            name to value
-        }
+        val valueMap =
+            list.associate { option: Element ->
+                val name = option.getAttributeValue("name")
+                val value = option.getAttributeValue("value")
+                name to value
+            }
         taskPath = valueMap["taskPath"] ?: ""
         task = valueMap["task"] ?: ""
         filename = valueMap["taskfile"] ?: ""
         arguments = valueMap["arguments"] ?: ""
     }
 
-    /**
-     * read v1.3 format
-     */
+    /** read v1.3 format */
     private fun readExternalV13(taskfileElem: Element) {
         val variablesText = taskfileElem.getAttributeValue("variables", "")
         val vars = splitVars(variablesText)
@@ -112,7 +109,10 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         }
     }
 
-    override fun getState(executor: Executor, executionEnvironment: ExecutionEnvironment): RunProfileState {
+    override fun getState(
+        executor: Executor,
+        executionEnvironment: ExecutionEnvironment,
+    ): RunProfileState {
         return object : CommandLineState(executionEnvironment) {
             override fun startProcess(): ProcessHandler {
                 val params = ParametersList()
@@ -131,9 +131,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
 
                 // variables
                 val vars = variables.vars.toMutableMap()
-                vars.forEach { (key, value) ->
-                    params.add("$key=\"$value\"")
-                }
+                vars.forEach { (key, value) -> params.add("$key=\"$value\"") }
 
                 // arguments
                 if (arguments.isNotEmpty()) {
@@ -142,26 +140,29 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                 }
 
                 // working directory
-                val workDirectory = if (workingDirectory.isNotEmpty()) {
-                    macroManager.expandPath(workingDirectory)
-                } else {
-                    File(taskfilePath).parent
-                }
+                val workDirectory =
+                    if (workingDirectory.isNotEmpty()) {
+                        macroManager.expandPath(workingDirectory)
+                    } else {
+                        File(taskfilePath).parent
+                    }
 
                 // environment variables
                 val parentEnvs =
-                    if (environmentVariables.isPassParentEnvs) EnvironmentUtil.getEnvironmentMap() else emptyMap<String, String>()
+                    if (environmentVariables.isPassParentEnvs) EnvironmentUtil.getEnvironmentMap()
+                    else emptyMap<String, String>()
                 val envs = parentEnvs + environmentVariables.envs.toMutableMap()
 
                 // build cmd
                 val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
                 val cmdLine = if (pty) PtyCommandLine() else GeneralCommandLine()
-                val cmd = cmdLine
-                    .withExePath(command[0])
-                    .withWorkDirectory(workDirectory)
-                    .withEnvironment(envs)
-                    .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.NONE)
-                    .withParameters(command.slice(1 until command.size))
+                val cmd =
+                    cmdLine
+                        .withExePath(command[0])
+                        .withWorkDirectory(workDirectory)
+                        .withEnvironment(envs)
+                        .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.NONE)
+                        .withParameters(command.slice(1 until command.size))
 
                 val processHandler = ColoredProcessHandler(cmd)
                 processHandler.setShouldKillProcessSoftly(true)

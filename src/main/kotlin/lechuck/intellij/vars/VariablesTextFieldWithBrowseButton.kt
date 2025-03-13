@@ -8,7 +8,6 @@ import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.UserActivityProviderComponent
 import com.intellij.util.containers.ContainerUtil
-import org.jetbrains.annotations.NotNull
 import java.awt.event.InputEvent
 import java.awt.event.KeyEvent
 import javax.swing.Icon
@@ -16,8 +15,10 @@ import javax.swing.KeyStroke
 import javax.swing.event.ChangeEvent
 import javax.swing.event.ChangeListener
 import javax.swing.event.DocumentEvent
+import org.jetbrains.annotations.NotNull
 
-class VariablesTextFieldWithBrowseButton : TextFieldWithBrowseButton(), UserActivityProviderComponent {
+class VariablesTextFieldWithBrowseButton :
+    TextFieldWithBrowseButton(), UserActivityProviderComponent {
     private var myData: VariablesData = VariablesData.DEFAULT
     private val myListeners = ContainerUtil.createLockFreeCopyOnWriteList<ChangeListener>()
 
@@ -26,31 +27,31 @@ class VariablesTextFieldWithBrowseButton : TextFieldWithBrowseButton(), UserActi
             setVars(VariablesTable.parseVarsFromText(text))
             createDialog().show()
         }
-        textField.document.addDocumentListener(object : DocumentAdapter() {
-            override fun textChanged(@NotNull e: DocumentEvent) {
-                if (!StringUtil.equals(stringifyVars(myData), text)) {
-                    val textVars: Map<String, String> = VariablesTable.parseVarsFromText(text)
-                    myData = myData.with(textVars)
-                    fireStateChanged()
+        textField.document.addDocumentListener(
+            object : DocumentAdapter() {
+                override fun textChanged(@NotNull e: DocumentEvent) {
+                    if (!StringUtil.equals(stringifyVars(myData), text)) {
+                        val textVars: Map<String, String> = VariablesTable.parseVarsFromText(text)
+                        myData = myData.with(textVars)
+                        fireStateChanged()
+                    }
                 }
             }
-        })
+        )
     }
 
     private fun createDialog(): VariablesDialog {
         return VariablesDialog(this)
     }
 
-    /**
-     * @return unmodifiable Map instance
-     */
+    /** @return unmodifiable Map instance */
     fun getVars(): Map<String, String> {
         return myData.vars
     }
 
     /**
-     * @param vars Map instance containing variables
-     *             (iteration order should be reliable user-specified, like [LinkedHashMap] or [ImmutableMap])
+     * @param vars Map instance containing variables (iteration order should be reliable
+     *   user-specified, like [LinkedHashMap] or [ImmutableMap])
      */
     fun setVars(vars: Map<String, String>) {
         setData(myData.with(vars))
@@ -107,11 +108,11 @@ class VariablesTextFieldWithBrowseButton : TextFieldWithBrowseButton(), UserActi
         }
     }
 
-
     override fun getIconTooltip(): @NlsContexts.Tooltip String {
-        val shortcut = KeymapUtil.getKeystrokeText(
-            KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK)
-        )
+        val shortcut =
+            KeymapUtil.getKeystrokeText(
+                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK)
+            )
         return "Edit variables ($shortcut)"
     }
 

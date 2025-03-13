@@ -2,7 +2,8 @@ package lechuck.intellij
 
 import com.intellij.openapi.fileChooser.FileChooserDescriptor
 
-class TaskfileFileChooserDescriptor : FileChooserDescriptor(true, false, false, false, false, false) {
+class TaskfileFileChooserDescriptor :
+    FileChooserDescriptor(true, false, false, false, false, false) {
     init {
         title = "Select Taskfile"
         withFileFilter { file ->

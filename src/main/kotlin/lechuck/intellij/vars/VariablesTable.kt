@@ -29,9 +29,15 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
     init {
         tableView.emptyText.text = ExecutionBundle.message("empty.text.no.variables")
         val copyAction = ActionManager.getInstance().getAction(IdeActions.ACTION_COPY)
-        copyAction?.registerCustomShortcutSet(copyAction.shortcutSet, tableView) // no need to add in popup menu
+        copyAction?.registerCustomShortcutSet(
+            copyAction.shortcutSet,
+            tableView,
+        ) // no need to add in popup menu
         val pasteAction = ActionManager.getInstance().getAction(IdeActions.ACTION_PASTE)
-        pasteAction?.registerCustomShortcutSet(pasteAction.shortcutSet, tableView) // no need to add in popup menu
+        pasteAction?.registerCustomShortcutSet(
+            pasteAction.shortcutSet,
+            tableView,
+        ) // no need to add in popup menu
     }
 
     fun setPasteActionEnabled(enabled: Boolean) {
@@ -44,7 +50,10 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
 
     fun editVariableName(variable: Variable) {
         ApplicationManager.getApplication().invokeLater {
-            val actualVar = ContainerUtil.find(getElements()) { item -> StringUtil.equals(variable.name, item.name) }
+            val actualVar =
+                ContainerUtil.find(getElements()) { item ->
+                    StringUtil.equals(variable.name, item.name)
+                }
             if (actualVar == null) {
                 return@invokeLater
             }
@@ -133,15 +142,18 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
         }
     }
 
-    private inner class CopyPasteProviderPanel(component: JComponent) : JPanel(GridLayout(1, 1)), DataProvider,
-        CopyProvider, PasteProvider {
+    private inner class CopyPasteProviderPanel(component: JComponent) :
+        JPanel(GridLayout(1, 1)), DataProvider, CopyProvider, PasteProvider {
 
         init {
             add(component)
         }
 
         override fun getData(dataId: String): Any? {
-            return if (PlatformDataKeys.COPY_PROVIDER.`is`(dataId) || PlatformDataKeys.PASTE_PROVIDER.`is`(dataId)) {
+            return if (
+                PlatformDataKeys.COPY_PROVIDER.`is`(dataId) ||
+                    PlatformDataKeys.PASTE_PROVIDER.`is`(dataId)
+            ) {
                 this
             } else null
         }
@@ -157,7 +169,8 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
                 }
                 if (row >= 0 && column >= 0) {
                     val textField = (view.cellEditor as DefaultCellEditor).component as JTextField
-                    CopyPasteManager.getInstance().setContents(StringSelection(textField.selectedText))
+                    CopyPasteManager.getInstance()
+                        .setContents(StringSelection(textField.selectedText))
                 }
                 return
             }
@@ -167,7 +180,8 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
             for (variable in variables) {
                 if (isEmpty(variable)) continue
                 if (sb.isNotEmpty()) sb.append(';')
-                sb.append(StringUtil.escapeChars(variable.name, '=', ';')).append('=')
+                sb.append(StringUtil.escapeChars(variable.name, '=', ';'))
+                    .append('=')
                     .append(StringUtil.escapeChars(variable.value, '=', ';'))
             }
             CopyPasteManager.getInstance().setContents(StringSelection(sb.toString()))
@@ -182,7 +196,8 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
         }
 
         override fun performPaste(dataContext: DataContext) {
-            val content = CopyPasteManager.getInstance().getContents<String>(DataFlavor.stringFlavor)
+            val content =
+                CopyPasteManager.getInstance().getContents<String>(DataFlavor.stringFlavor)
             if (StringUtil.isEmpty(content)) {
                 return
             }
@@ -213,9 +228,12 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
             }
             var variables = ArrayList(getVariables())
             variables.addAll(parsed)
-            variables = ArrayList(ContainerUtil.filter(variables) { variable ->
-                !StringUtil.isEmpty(variable.name) || !StringUtil.isEmpty(variable.value)
-            })
+            variables =
+                ArrayList(
+                    ContainerUtil.filter(variables) { variable ->
+                        !StringUtil.isEmpty(variable.name) || !StringUtil.isEmpty(variable.value)
+                    }
+                )
             setValues(variables)
         }
 
@@ -229,36 +247,38 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
     }
 
     override fun createExtraToolbarActions(): Array<AnAction> {
-        val copyButton = object : AnActionButton("Copy", AllIcons.Actions.Copy) {
-            override fun actionPerformed(e: AnActionEvent) {
-                myPanel?.performCopy(e.dataContext)
-            }
+        val copyButton =
+            object : AnActionButton("Copy", AllIcons.Actions.Copy) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    myPanel?.performCopy(e.dataContext)
+                }
 
-            override fun isEnabled(): Boolean {
-                return myPanel?.isCopyEnabled(DataContext.EMPTY_CONTEXT) == true
-            }
+                override fun isEnabled(): Boolean {
+                    return myPanel?.isCopyEnabled(DataContext.EMPTY_CONTEXT) == true
+                }
 
-            override fun getActionUpdateThread(): ActionUpdateThread {
-                return ActionUpdateThread.EDT
+                override fun getActionUpdateThread(): ActionUpdateThread {
+                    return ActionUpdateThread.EDT
+                }
             }
-        }
-        val pasteButton = object : AnActionButton("Paste", AllIcons.Actions.MenuPaste) {
-            override fun actionPerformed(e: AnActionEvent) {
-                myPanel?.performPaste(e.dataContext)
-            }
+        val pasteButton =
+            object : AnActionButton("Paste", AllIcons.Actions.MenuPaste) {
+                override fun actionPerformed(e: AnActionEvent) {
+                    myPanel?.performPaste(e.dataContext)
+                }
 
-            override fun isEnabled(): Boolean {
-                return myPanel?.isPasteEnabled(DataContext.EMPTY_CONTEXT) == true
-            }
+                override fun isEnabled(): Boolean {
+                    return myPanel?.isPasteEnabled(DataContext.EMPTY_CONTEXT) == true
+                }
 
-            override fun isVisible(): Boolean {
-                return myPanel?.isPastePossible(DataContext.EMPTY_CONTEXT) == true
-            }
+                override fun isVisible(): Boolean {
+                    return myPanel?.isPastePossible(DataContext.EMPTY_CONTEXT) == true
+                }
 
-            override fun getActionUpdateThread(): ActionUpdateThread {
-                return ActionUpdateThread.EDT
+                override fun getActionUpdateThread(): ActionUpdateThread {
+                    return ActionUpdateThread.EDT
+                }
             }
-        }
         return arrayOf(copyButton, pasteButton)
     }
 

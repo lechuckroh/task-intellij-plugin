@@ -24,14 +24,15 @@ import com.intellij.ui.TextFieldWithAutoCompletion
 import com.intellij.ui.components.fields.ExpandableTextField
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.UIUtil
-import lechuck.intellij.vars.VariablesComponent
 import java.awt.BorderLayout
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
+import lechuck.intellij.vars.VariablesComponent
 
-class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<TaskRunConfiguration>() {
+class TaskRunConfigurationEditor(private val project: Project) :
+    SettingsEditor<TaskRunConfiguration>() {
     private val taskExecutableField = TextFieldWithBrowseButton()
     private val filenameField = TextFieldWithBrowseButton()
     private val taskCompletionProvider =
@@ -41,7 +42,9 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
     private val envVarsComponent = EnvironmentVariablesComponent()
     private val varsComponent = VariablesComponent()
     private val workingDirectoryField = TextFieldWithBrowseButton()
-    private val mapper = ObjectMapper(YAMLFactory()).configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    private val mapper =
+        ObjectMapper(YAMLFactory())
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
     private val panel: JPanel by lazy {
         FormBuilder.createFormBuilder()
@@ -52,7 +55,10 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
             .addLabeledComponent("Taskfile", filenameField)
             .addLabeledComponent("Task", taskField)
             .addComponent(LabeledComponent.create(argumentsField, "CLI arguments"))
-            .addLabeledComponent("Working directory", createComponentWithMacroBrowse(workingDirectoryField))
+            .addLabeledComponent(
+                "Working directory",
+                createComponentWithMacroBrowse(workingDirectoryField),
+            )
             .addComponent(envVarsComponent)
             .addComponent(varsComponent)
             .panel
@@ -67,14 +73,19 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
             TextBrowseFolderListener(TaskfileFileChooserDescriptor(), project)
         )
 
-        filenameField.textField.document.addDocumentListener(object : DocumentAdapter() {
-            override fun textChanged(event: DocumentEvent) {
-                updateTargetCompletion(filenameField.text)
+        filenameField.textField.document.addDocumentListener(
+            object : DocumentAdapter() {
+                override fun textChanged(event: DocumentEvent) {
+                    updateTargetCompletion(filenameField.text)
+                }
             }
-        })
+        )
 
         workingDirectoryField.addBrowseFolderListener(
-            TextBrowseFolderListener(FileChooserDescriptorFactory.createSingleFolderDescriptor(), project)
+            TextBrowseFolderListener(
+                FileChooserDescriptorFactory.createSingleFolderDescriptor(),
+                project,
+            )
         )
     }
 
@@ -82,14 +93,13 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
         val file = LocalFileSystem.getInstance().findFileByPath(filename)
         if (file != null) {
             ApplicationManager.getApplication().executeOnPooledThread {
-                val psiFile = ReadAction.compute<PsiFile?, RuntimeException> {
-                    PsiManager.getInstance(project).findFile(file)
-                }
+                val psiFile =
+                    ReadAction.compute<PsiFile?, RuntimeException> {
+                        PsiManager.getInstance(project).findFile(file)
+                    }
                 val results = psiFile?.let { findTasks(it) } ?: emptyList()
 
-                SwingUtilities.invokeLater {
-                    taskCompletionProvider.setItems(results)
-                }
+                SwingUtilities.invokeLater { taskCompletionProvider.setItems(results) }
             }
         } else {
             taskCompletionProvider.setItems(emptyList())
@@ -132,7 +142,9 @@ class TaskRunConfigurationEditor(private val project: Project) : SettingsEditor<
         cfg.workingDirectory = workingDirectoryField.text
     }
 
-    private fun createComponentWithMacroBrowse(textAccessor: TextFieldWithBrowseButton): JComponent {
+    private fun createComponentWithMacroBrowse(
+        textAccessor: TextFieldWithBrowseButton
+    ): JComponent {
         val button = FixedSizeButton(textAccessor)
         button.icon = AllIcons.Actions.ListFiles
         button.addActionListener {

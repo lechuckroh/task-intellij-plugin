@@ -59,7 +59,7 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
     private class TaskRunAction(
         private val taskName: String,
         private val project: Project,
-        private val taskfilePath: String
+        private val taskfilePath: String,
     ) : AnAction() {
         override fun actionPerformed(e: AnActionEvent) {
             val runManager = RunManagerImpl.getInstanceImpl(project)
@@ -68,12 +68,13 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
             val configurationName = "Task: $taskName"
             val existingConfiguration = runManager.findConfigurationByName(configurationName)
 
-            val configuration = if (existingConfiguration != null) {
-                existingConfiguration
-            } else {
-                val factory = configurationType.configurationFactories[0]
-                runManager.createConfiguration(configurationName, factory)
-            }
+            val configuration =
+                if (existingConfiguration != null) {
+                    existingConfiguration
+                } else {
+                    val factory = configurationType.configurationFactories[0]
+                    runManager.createConfiguration(configurationName, factory)
+                }
 
             val runConfig = configuration.configuration as TaskRunConfiguration
             runConfig.task = taskName
@@ -86,7 +87,8 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
             runManager.selectedConfiguration = configuration
 
             try {
-                val executor = ExecutorRegistry.getInstance().getExecutorById(DefaultRunExecutor.EXECUTOR_ID)
+                val executor =
+                    ExecutorRegistry.getInstance().getExecutorById(DefaultRunExecutor.EXECUTOR_ID)
                 if (executor != null) {
                     ExecutionEnvironmentBuilder.create(executor, configuration).buildAndExecute()
                 }

@@ -3,10 +3,11 @@ package lechuck.intellij.vars
 import com.intellij.openapi.ui.LabeledComponent
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.UserActivityProviderComponent
-import org.jetbrains.annotations.NonNls
 import javax.swing.event.ChangeListener
+import org.jetbrains.annotations.NonNls
 
-class VariablesComponent : LabeledComponent<TextFieldWithBrowseButton>(), UserActivityProviderComponent {
+class VariablesComponent :
+    LabeledComponent<TextFieldWithBrowseButton>(), UserActivityProviderComponent {
 
     @NonNls
     companion object {

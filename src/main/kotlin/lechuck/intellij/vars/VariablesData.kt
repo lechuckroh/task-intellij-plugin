@@ -2,9 +2,7 @@ package lechuck.intellij.vars
 
 import org.jdom.Element
 
-/**
- * Holds variables configuration:
- */
+/** Holds variables configuration: */
 data class VariablesData(val vars: Map<String, String>) {
 
     companion object {
@@ -32,8 +30,8 @@ data class VariablesData(val vars: Map<String, String>) {
         }
 
         /**
-         * @param vars Map instance containing variables
-         *             (iteration order should be reliable user-specified, like {@link LinkedHashMap} or {@link ImmutableMap})
+         * @param vars Map instance containing variables (iteration order should be reliable
+         *   user-specified, like {@link LinkedHashMap} or {@link ImmutableMap})
          */
         fun create(vars: Map<String, String>): VariablesData {
             return VariablesData(vars)

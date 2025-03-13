@@ -5,13 +5,14 @@ import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.ui.table.JBTable
 import com.intellij.util.EnvironmentUtil
 import com.intellij.util.ui.ListTableModel
-import net.miginfocom.swing.MigLayout
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.table.TableCellRenderer
+import net.miginfocom.swing.MigLayout
 
-class VariablesDialog(private val parent: VariablesTextFieldWithBrowseButton) : DialogWrapper(parent, true) {
+class VariablesDialog(private val parent: VariablesTextFieldWithBrowseButton) :
+    DialogWrapper(parent, true) {
 
     private val varTable: VariablesTable
     private val panel: JPanel
@@ -25,10 +26,11 @@ class VariablesDialog(private val parent: VariablesTextFieldWithBrowseButton) : 
         val label = JLabel("Variables:")
         label.labelFor = varTable.tableView.component
 
-        panel = JPanel(MigLayout("fill, ins 0, gap 0, hidemode 3")).apply {
-            add(label, "hmax pref, wrap")
-            add(varTable.component, "push, grow, wrap, gaptop 5")
-        }
+        panel =
+            JPanel(MigLayout("fill, ins 0, gap 0, hidemode 3")).apply {
+                add(label, "hmax pref, wrap")
+                add(varTable.component, "push, grow, wrap, gaptop 5")
+            }
 
         title = "Variables"
         init()
@@ -86,7 +88,10 @@ class VariablesDialog(private val parent: VariablesTextFieldWithBrowseButton) : 
         }
 
         inner class MyNameColumnInfo : NameColumnInfo() {
-            override fun getCustomizedRenderer(o: Variable?, renderer: TableCellRenderer?): TableCellRenderer? {
+            override fun getCustomizedRenderer(
+                o: Variable?,
+                renderer: TableCellRenderer?,
+            ): TableCellRenderer? {
                 return renderer
             }
         }
@@ -96,7 +101,10 @@ class VariablesDialog(private val parent: VariablesTextFieldWithBrowseButton) : 
                 return true
             }
 
-            override fun getCustomizedRenderer(o: Variable?, renderer: TableCellRenderer?): TableCellRenderer? {
+            override fun getCustomizedRenderer(
+                o: Variable?,
+                renderer: TableCellRenderer?,
+            ): TableCellRenderer? {
                 return renderer
             }
         }
