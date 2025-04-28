@@ -24,6 +24,7 @@ import com.intellij.ui.TextFieldWithAutoCompletion
 import com.intellij.ui.components.fields.ExpandableTextField
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.UIUtil
+import lechuck.intellij.domain.Taskfile
 import java.awt.BorderLayout
 import javax.swing.JComponent
 import javax.swing.JPanel
@@ -109,8 +110,8 @@ class TaskRunConfigurationEditor(private val project: Project) :
     private fun findTasks(file: PsiFile): Collection<String> {
         return try {
             file.virtualFile.inputStream.use { `is` ->
-                val taskfile: Taskfile = mapper.readValue(`is`, Taskfile::class.java)
-                taskfile.tasks?.keys ?: emptyList()
+                val taskfile = Taskfile.load(`is`, file.virtualFile.parent)
+                taskfile.getTaskNames()
             }
         } catch (e: Exception) {
             e.printStackTrace()

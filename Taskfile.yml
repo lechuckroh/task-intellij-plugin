@@ -6,15 +6,22 @@ vars:
   TEST: test
 
 tasks:
+  default:
+    cmds:
+      - task --list-all
+
   build:
+    desc: Build plugin
     cmds:
       - ./gradlew build
 
   format:
+    desc: Format source code with ktfmt
     cmds:
       - ./gradlew ktfmtFormat
 
   runIde:
+    desc: Run IDE with this plugin
     cmds:
       - ./gradlew runIde
 

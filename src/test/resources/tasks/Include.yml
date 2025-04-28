@@ -1,0 +1,12 @@
+version: '3'
+
+includes:
+  dir1:
+    taskfile: ./dir1/Taskfile.yml
+  dir2: ./dir2/Taskfile.yml
+  notFound: ./not-exist/Taskfile.yml
+
+tasks:
+  greet:
+    cmds:
+      - echo Hello world!
