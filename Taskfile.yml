@@ -6,6 +6,10 @@ vars:
   TEST: test
 
 tasks:
+  default:
+    cmds:
+      - task --list-all
+
   build:
     cmds:
       - ./gradlew build

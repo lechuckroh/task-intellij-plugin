@@ -8,7 +8,7 @@ plugins {
 }
 
 group = 'lechuck'
-version = '1.7.1'
+version = '1.7.2'
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -50,6 +50,12 @@ patchPluginXml {
     version = project.version
     sinceBuild = '241'
 }
+
+jar {
+    from('LICENSE')
+}
+
+
 
 publishPlugin {
     token = System.getenv('ORG_GRADLE_PROJECT_intellijPublishToken')
