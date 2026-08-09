@@ -12,7 +12,6 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import org.jetbrains.yaml.psi.YAMLKeyValue
-import org.jetbrains.yaml.psi.YAMLMapping
 
 class TaskLineMarkerProvider : RunLineMarkerContributor() {
     companion object {
@@ -36,11 +35,6 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
         // Check if this key is directly under the tasks section
         val tasksSection = keyValue.parent?.parent
         if (tasksSection !is YAMLKeyValue || tasksSection.keyText != "tasks") {
-            return null
-        }
-
-        // Check if the value is a mapping (has child elements)
-        if (keyValue.value !is YAMLMapping) {
             return null
         }
 

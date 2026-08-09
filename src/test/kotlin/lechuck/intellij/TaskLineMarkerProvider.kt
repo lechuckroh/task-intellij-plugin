@@ -82,6 +82,34 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
         assertNull("Should return null for non-task key", info)
     }
 
+    @Test
+    fun testGetInfoForShortFormTaskKey() {
+        val yamlFile =
+            """
+            tasks:
+              string-cmd: echo Short syntax command
+              object-cmd:
+                cmds:
+                  - echo "object"
+        """
+                .trimIndent()
+
+        val file = myFixture.configureByText("Taskfile.yml", yamlFile)
+        val stringTaskKey = findTaskKey(file, "string-cmd")
+        val objectTaskKey = findTaskKey(file, "object-cmd")
+
+        assertNotNull(stringTaskKey)
+        assertNotNull(objectTaskKey)
+
+        val stringInfo = provider.getInfo(stringTaskKey!!)
+        assertNotNull("Should return Info for short-form (string) task key", stringInfo)
+        assertEquals("Run Task: string-cmd", stringInfo?.tooltipProvider?.apply(stringTaskKey))
+
+        val objectInfo = provider.getInfo(objectTaskKey!!)
+        assertNotNull("Should return Info for long-form (mapping) task key", objectInfo)
+        assertEquals("Run Task: object-cmd", objectInfo?.tooltipProvider?.apply(objectTaskKey))
+    }
+
     private fun findTaskKey(file: PsiFile, taskName: String): PsiElement? {
         return PsiTreeUtil.findChildrenOfType(file, YAMLKeyValue::class.java)
             .find { it.keyText == taskName && it.parent?.parent is YAMLKeyValue }
