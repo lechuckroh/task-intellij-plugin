@@ -25,7 +25,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
     var workingDirectory = ""
     var environmentVariables: EnvironmentVariablesData = EnvironmentVariablesData.DEFAULT
     var variables: VariablesData = VariablesData.DEFAULT
-    var pty = false
+    var pty = true
 
     private companion object {
         const val TASKFILE = "taskfile"
@@ -72,7 +72,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             task = taskfileElem.getAttributeValue(TASK) ?: ""
             workingDirectory = taskfileElem.getAttributeValue(WORKING_DIRECTORY) ?: ""
             arguments = taskfileElem.getAttributeValue(ARGUMENTS) ?: ""
-            pty = taskfileElem.getAttributeValue(PTY) == "true"
+            pty = taskfileElem.getAttributeValue(PTY)?.toBooleanStrictOrNull() ?: true
             environmentVariables = EnvironmentVariablesData.readExternal(taskfileElem)
 
             val variablesRead = VariablesData.readExternal(taskfileElem)
