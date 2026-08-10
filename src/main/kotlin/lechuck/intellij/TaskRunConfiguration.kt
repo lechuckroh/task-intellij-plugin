@@ -129,10 +129,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                 return handler
             }
 
-            override fun execute(
-                executor: Executor,
-                runner: ProgramRunner<*>,
-            ): ExecutionResult {
+            override fun execute(executor: Executor, runner: ProgramRunner<*>): ExecutionResult {
                 val handler = startProcess()
                 val console = TerminalExecutionConsole(project, 120, 30, handler)
                 console.attachToProcess(handler)
@@ -179,12 +176,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             }
 
         // environment variables
-        val defaults =
-            mapOf(
-                "TERM" to "xterm-256color",
-                "LINES" to "30",
-                "COLUMNS" to "120",
-            )
+        val defaults = mapOf("TERM" to "xterm-256color", "LINES" to "30", "COLUMNS" to "120")
         val envs = (defaults + environmentVariables.envs).toMutableMap()
         val parentEnvType =
             if (pty || environmentVariables.isPassParentEnvs) {
@@ -197,10 +189,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
         val cmdLine =
             if (pty) {
-                PtyCommandLine()
-                    .withConsoleMode(false)
-                    .withInitialColumns(120)
-                    .withInitialRows(30)
+                PtyCommandLine().withConsoleMode(false).withInitialColumns(120).withInitialRows(30)
             } else {
                 GeneralCommandLine()
             }
