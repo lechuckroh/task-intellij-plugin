@@ -176,8 +176,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             }
 
         // environment variables
-        val defaults = mapOf("TERM" to "xterm-256color", "LINES" to "30", "COLUMNS" to "120")
-        val envs = (defaults + environmentVariables.envs).toMutableMap()
+        val envs = environmentVariables.envs.toMutableMap()
         val parentEnvType =
             if (pty || environmentVariables.isPassParentEnvs) {
                 GeneralCommandLine.ParentEnvironmentType.CONSOLE
