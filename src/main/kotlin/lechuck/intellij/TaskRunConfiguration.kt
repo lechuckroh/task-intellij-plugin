@@ -3,8 +3,8 @@ package lechuck.intellij
 import com.intellij.execution.Executor
 import com.intellij.execution.configuration.EnvironmentVariablesData
 import com.intellij.execution.configurations.*
-import com.intellij.execution.process.ColoredProcessHandler
 import com.intellij.execution.process.ProcessHandler
+import com.intellij.execution.process.ProcessHandlerFactory
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.components.PathMacroManager
@@ -155,7 +155,14 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
 
                 // build cmd
                 val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
-                val cmdLine = if (pty) PtyCommandLine() else GeneralCommandLine()
+                val cmdLine =
+                    if (pty) {
+                        PtyCommandLine()
+                            .withInitialColumns(120)
+                            .withInitialRows(30)
+                    } else {
+                        GeneralCommandLine()
+                    }
                 val cmd =
                     cmdLine
                         .withExePath(command[0])
@@ -164,8 +171,8 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                         .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.NONE)
                         .withParameters(command.slice(1 until command.size))
 
-                val processHandler = ColoredProcessHandler(cmd)
-                processHandler.setShouldKillProcessSoftly(true)
+                val processHandler =
+                    ProcessHandlerFactory.getInstance().createColoredProcessHandler(cmd)
                 ProcessTerminatedListener.attach(processHandler)
                 return processHandler
             }
