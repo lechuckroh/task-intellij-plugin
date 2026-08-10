@@ -9,7 +9,6 @@ import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.components.PathMacroManager
 import com.intellij.openapi.project.Project
-import com.intellij.util.EnvironmentUtil
 import java.io.File
 import lechuck.intellij.util.StringUtil.splitVars
 import lechuck.intellij.vars.VariablesData
@@ -148,10 +147,13 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                     }
 
                 // environment variables
-                val parentEnvs =
-                    if (environmentVariables.isPassParentEnvs) EnvironmentUtil.getEnvironmentMap()
-                    else emptyMap<String, String>()
-                val envs = parentEnvs + environmentVariables.envs.toMutableMap()
+                val envs = environmentVariables.envs.toMutableMap()
+                val parentEnvType =
+                    if (pty || environmentVariables.isPassParentEnvs) {
+                        GeneralCommandLine.ParentEnvironmentType.CONSOLE
+                    } else {
+                        GeneralCommandLine.ParentEnvironmentType.NONE
+                    }
 
                 // build cmd
                 val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
@@ -168,7 +170,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                         .withExePath(command[0])
                         .withWorkDirectory(workDirectory)
                         .withEnvironment(envs)
-                        .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.NONE)
+                        .withParentEnvironmentType(parentEnvType)
                         .withParameters(command.slice(1 until command.size))
 
                 val processHandler =
