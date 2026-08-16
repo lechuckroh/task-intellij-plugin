@@ -39,6 +39,8 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         const val WORKING_DIRECTORY = "workingDirectory"
         const val ARGUMENTS = "arguments"
         const val PTY = "pty"
+        const val TERMINAL_COLUMNS = 120
+        const val TERMINAL_ROWS = 30
     }
 
     override fun checkConfiguration() {
@@ -131,7 +133,8 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
 
             override fun execute(executor: Executor, runner: ProgramRunner<*>): ExecutionResult {
                 val handler = startProcess()
-                val console = TerminalExecutionConsole(project, 120, 30, handler)
+                val console =
+                    TerminalExecutionConsole(project, TERMINAL_COLUMNS, TERMINAL_ROWS, handler)
                 console.attachToProcess(handler)
                 return DefaultExecutionResult(
                     console,
@@ -185,7 +188,10 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         // build cmd
         val cmdLine =
             if (pty) {
-                PtyCommandLine().withConsoleMode(false).withInitialColumns(120).withInitialRows(30)
+                PtyCommandLine()
+                    .withConsoleMode(false)
+                    .withInitialColumns(TERMINAL_COLUMNS)
+                    .withInitialRows(TERMINAL_ROWS)
             } else {
                 GeneralCommandLine()
             }
