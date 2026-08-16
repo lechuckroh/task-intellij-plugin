@@ -26,3 +26,9 @@ tasks:
     cmds:
       - cat Taskfile.yml
       - echo TEST={{.TEST}} TEST2={{.TEST2}}
+
+  bg-task:
+    desc: Run a background task
+    cmds:
+      - sleep 300 &
+      - echo done

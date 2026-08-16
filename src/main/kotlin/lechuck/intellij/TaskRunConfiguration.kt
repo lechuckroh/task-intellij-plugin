@@ -1,7 +1,5 @@
 package lechuck.intellij
 
-import com.intellij.execution.DefaultExecutionResult
-import com.intellij.execution.ExecutionResult
 import com.intellij.execution.Executor
 import com.intellij.execution.configuration.EnvironmentVariablesData
 import com.intellij.execution.configurations.*
@@ -9,11 +7,10 @@ import com.intellij.execution.process.KillableProcessHandler
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
-import com.intellij.execution.runners.ProgramRunner
+import com.intellij.execution.ui.ConsoleView
 import com.intellij.openapi.components.PathMacroManager
 import com.intellij.openapi.project.Project
 import com.intellij.terminal.TerminalExecutionConsole
-import com.intellij.util.io.BaseOutputReader
 import java.io.File
 import lechuck.intellij.util.StringUtil.splitVars
 import lechuck.intellij.vars.VariablesData
@@ -121,27 +118,14 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
     ): RunProfileState {
         return object : CommandLineState(executionEnvironment) {
             override fun startProcess(): ProcessHandler {
-                val cmd = buildCommandLine()
-                val handler =
-                    object : KillableProcessHandler(cmd) {
-                        override fun readerOptions(): BaseOutputReader.Options =
-                            BaseOutputReader.Options.forTerminalPtyProcess()
-                    }
+                val handler = KillableProcessHandler(buildCommandLine())
                 ProcessTerminatedListener.attach(handler)
                 return handler
             }
 
-            override fun execute(executor: Executor, runner: ProgramRunner<*>): ExecutionResult {
-                val handler = startProcess()
-                val console =
-                    TerminalExecutionConsole(project, TERMINAL_COLUMNS, TERMINAL_ROWS, handler)
-                console.attachToProcess(handler)
-                return DefaultExecutionResult(
-                    console,
-                    handler,
-                    *createActions(console, handler, executor),
-                )
-            }
+            override fun createConsole(executor: Executor): ConsoleView =
+                TerminalExecutionConsole(project, TERMINAL_COLUMNS, TERMINAL_ROWS, null)
+                    .withConvertLfToCrlfForNonPtyProcess(true)
         }
     }
 
