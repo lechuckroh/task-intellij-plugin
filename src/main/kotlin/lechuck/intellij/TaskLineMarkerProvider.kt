@@ -73,6 +73,7 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
             val runConfig = configuration.configuration as TaskRunConfiguration
             runConfig.task = taskName
             runConfig.filename = taskfilePath
+            runConfig.pty = true
 
             if (existingConfiguration == null) {
                 runManager.addConfiguration(configuration)

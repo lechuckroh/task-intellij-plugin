@@ -1,15 +1,19 @@
 package lechuck.intellij
 
+import com.intellij.execution.DefaultExecutionResult
+import com.intellij.execution.ExecutionResult
 import com.intellij.execution.Executor
 import com.intellij.execution.configuration.EnvironmentVariablesData
 import com.intellij.execution.configurations.*
-import com.intellij.execution.process.ColoredProcessHandler
+import com.intellij.execution.process.KillableProcessHandler
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
+import com.intellij.execution.runners.ProgramRunner
 import com.intellij.openapi.components.PathMacroManager
 import com.intellij.openapi.project.Project
-import com.intellij.util.EnvironmentUtil
+import com.intellij.terminal.TerminalExecutionConsole
+import com.intellij.util.io.BaseOutputReader
 import java.io.File
 import lechuck.intellij.util.StringUtil.splitVars
 import lechuck.intellij.vars.VariablesData
@@ -25,7 +29,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
     var workingDirectory = ""
     var environmentVariables: EnvironmentVariablesData = EnvironmentVariablesData.DEFAULT
     var variables: VariablesData = VariablesData.DEFAULT
-    var pty = false
+    var pty = true
 
     private companion object {
         const val TASKFILE = "taskfile"
@@ -72,7 +76,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             task = taskfileElem.getAttributeValue(TASK) ?: ""
             workingDirectory = taskfileElem.getAttributeValue(WORKING_DIRECTORY) ?: ""
             arguments = taskfileElem.getAttributeValue(ARGUMENTS) ?: ""
-            pty = taskfileElem.getAttributeValue(PTY) == "true"
+            pty = taskfileElem.getAttributeValue(PTY)?.toBooleanStrictOrNull() ?: true
             environmentVariables = EnvironmentVariablesData.readExternal(taskfileElem)
 
             val variablesRead = VariablesData.readExternal(taskfileElem)
@@ -115,60 +119,84 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
     ): RunProfileState {
         return object : CommandLineState(executionEnvironment) {
             override fun startProcess(): ProcessHandler {
-                val params = ParametersList()
-
-                // taskfile
-                val macroManager = PathMacroManager.getInstance(project)
-                val taskfilePath = macroManager.expandPath(filename)
-                if (taskfilePath.isNotEmpty()) {
-                    params.addAll("--taskfile", taskfilePath)
-                }
-
-                // task
-                if (task.isNotEmpty()) {
-                    params.addParametersString(task)
-                }
-
-                // variables
-                val vars = variables.vars.toMutableMap()
-                vars.forEach { (key, value) -> params.add("$key=\"$value\"") }
-
-                // arguments
-                if (arguments.isNotEmpty()) {
-                    params.add("--")
-                    params.addParametersString(arguments)
-                }
-
-                // working directory
-                val workDirectory =
-                    if (workingDirectory.isNotEmpty()) {
-                        macroManager.expandPath(workingDirectory)
-                    } else {
-                        File(taskfilePath).parent
+                val cmd = buildCommandLine()
+                val handler =
+                    object : KillableProcessHandler(cmd) {
+                        override fun readerOptions(): BaseOutputReader.Options =
+                            BaseOutputReader.Options.forTerminalPtyProcess()
                     }
+                ProcessTerminatedListener.attach(handler)
+                return handler
+            }
 
-                // environment variables
-                val parentEnvs =
-                    if (environmentVariables.isPassParentEnvs) EnvironmentUtil.getEnvironmentMap()
-                    else emptyMap<String, String>()
-                val envs = parentEnvs + environmentVariables.envs.toMutableMap()
-
-                // build cmd
-                val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
-                val cmdLine = if (pty) PtyCommandLine() else GeneralCommandLine()
-                val cmd =
-                    cmdLine
-                        .withExePath(command[0])
-                        .withWorkDirectory(workDirectory)
-                        .withEnvironment(envs)
-                        .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.NONE)
-                        .withParameters(command.slice(1 until command.size))
-
-                val processHandler = ColoredProcessHandler(cmd)
-                processHandler.setShouldKillProcessSoftly(true)
-                ProcessTerminatedListener.attach(processHandler)
-                return processHandler
+            override fun execute(executor: Executor, runner: ProgramRunner<*>): ExecutionResult {
+                val handler = startProcess()
+                val console = TerminalExecutionConsole(project, 120, 30, handler)
+                console.attachToProcess(handler)
+                return DefaultExecutionResult(
+                    console,
+                    handler,
+                    *createActions(console, handler, executor),
+                )
             }
         }
+    }
+
+    private fun buildCommandLine(): GeneralCommandLine {
+        val params = ParametersList()
+
+        // taskfile
+        val macroManager = PathMacroManager.getInstance(project)
+        val taskfilePath = macroManager.expandPath(filename)
+        if (taskfilePath.isNotEmpty()) {
+            params.addAll("--taskfile", taskfilePath)
+        }
+
+        // task
+        if (task.isNotEmpty()) {
+            params.addParametersString(task)
+        }
+
+        // variables
+        val vars = variables.vars.toMutableMap()
+        vars.forEach { (key, value) -> params.add("$key=\"$value\"") }
+
+        // arguments
+        if (arguments.isNotEmpty()) {
+            params.add("--")
+            params.addParametersString(arguments)
+        }
+
+        // working directory
+        val workDirectory =
+            if (workingDirectory.isNotEmpty()) {
+                macroManager.expandPath(workingDirectory)
+            } else {
+                File(taskfilePath).parent
+            }
+
+        // environment variables
+        val envs = environmentVariables.envs.toMutableMap()
+        val parentEnvType =
+            if (pty || environmentVariables.isPassParentEnvs) {
+                GeneralCommandLine.ParentEnvironmentType.CONSOLE
+            } else {
+                GeneralCommandLine.ParentEnvironmentType.NONE
+            }
+
+        // build cmd
+        val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
+        val cmdLine =
+            if (pty) {
+                PtyCommandLine().withConsoleMode(false).withInitialColumns(120).withInitialRows(30)
+            } else {
+                GeneralCommandLine()
+            }
+        return cmdLine
+            .withExePath(command[0])
+            .withWorkDirectory(workDirectory)
+            .withEnvironment(envs)
+            .withParentEnvironmentType(parentEnvType)
+            .withParameters(command.slice(1 until command.size))
     }
 }
