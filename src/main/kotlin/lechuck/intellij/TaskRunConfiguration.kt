@@ -158,8 +158,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         }
 
         // variables
-        val vars = variables.vars.toMutableMap()
-        vars.forEach { (key, value) -> params.add("$key=\"$value\"") }
+        variables.vars.forEach { (key, value) -> params.add("$key=\"$value\"") }
 
         // arguments
         if (arguments.isNotEmpty()) {
