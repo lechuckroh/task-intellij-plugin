@@ -179,7 +179,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
 
         // environment variables
         val parentEnvType =
-            if (pty || environmentVariables.isPassParentEnvs) {
+            if (environmentVariables.isPassParentEnvs) {
                 GeneralCommandLine.ParentEnvironmentType.CONSOLE
             } else {
                 GeneralCommandLine.ParentEnvironmentType.NONE
