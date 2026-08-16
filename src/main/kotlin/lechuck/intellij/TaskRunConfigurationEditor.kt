@@ -21,6 +21,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.TextFieldWithAutoCompletion
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.fields.ExpandableTextField
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.UIUtil
@@ -42,6 +43,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
     private val envVarsComponent = EnvironmentVariablesComponent()
     private val varsComponent = VariablesComponent()
     private val workingDirectoryField = TextFieldWithBrowseButton()
+    private val ptyCheckBox = JBCheckBox("Run in terminal (PTY)")
     private val mapper =
         ObjectMapper(YAMLFactory())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -61,6 +63,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
             )
             .addComponent(envVarsComponent)
             .addComponent(varsComponent)
+            .addComponent(ptyCheckBox)
             .panel
     }
 
@@ -128,6 +131,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
         envVarsComponent.envData = cfg.environmentVariables
         varsComponent.varData = cfg.variables
         workingDirectoryField.text = cfg.workingDirectory
+        ptyCheckBox.isSelected = cfg.pty
 
         updateTargetCompletion(cfg.filename)
     }
@@ -140,6 +144,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
         cfg.environmentVariables = envVarsComponent.envData
         cfg.variables = varsComponent.varData
         cfg.workingDirectory = workingDirectoryField.text
+        cfg.pty = ptyCheckBox.isSelected
     }
 
     private fun createComponentWithMacroBrowse(
