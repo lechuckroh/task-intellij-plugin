@@ -184,7 +184,6 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             }
 
         // build cmd
-        val command = arrayOf(taskPath.ifEmpty { "task" }) + params.array
         val cmdLine =
             if (pty) {
                 PtyCommandLine().withConsoleMode(false).withInitialColumns(120).withInitialRows(30)
@@ -192,10 +191,10 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
                 GeneralCommandLine()
             }
         return cmdLine
-            .withExePath(command[0])
+            .withExePath(taskPath.ifEmpty { "task" })
             .withWorkDirectory(workDirectory)
             .withEnvironment(envs)
             .withParentEnvironmentType(parentEnvType)
-            .withParameters(command.slice(1 until command.size))
+            .withParameters(params.list)
     }
 }
