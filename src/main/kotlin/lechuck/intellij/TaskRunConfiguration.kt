@@ -175,7 +175,6 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             }
 
         // environment variables
-        val envs = environmentVariables.envs.toMutableMap()
         val parentEnvType =
             if (pty || environmentVariables.isPassParentEnvs) {
                 GeneralCommandLine.ParentEnvironmentType.CONSOLE
@@ -193,7 +192,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         return cmdLine
             .withExePath(taskPath.ifEmpty { "task" })
             .withWorkDirectory(workDirectory)
-            .withEnvironment(envs)
+            .withEnvironment(environmentVariables.envs)
             .withParentEnvironmentType(parentEnvType)
             .withParameters(params.list)
     }
