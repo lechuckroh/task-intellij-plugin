@@ -129,7 +129,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         }
     }
 
-    private fun buildCommandLine(): GeneralCommandLine {
+    internal fun buildCommandLine(): GeneralCommandLine {
         val params = ParametersList()
 
         // taskfile
@@ -145,7 +145,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         }
 
         // variables
-        variables.vars.forEach { (key, value) -> params.add("$key=\"$value\"") }
+        variables.vars.forEach { (key, value) -> params.add("$key=$value") }
 
         // arguments
         if (arguments.isNotEmpty()) {
