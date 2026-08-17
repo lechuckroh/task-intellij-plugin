@@ -2,8 +2,10 @@ package lechuck.intellij
 
 import com.intellij.execution.ExecutionException
 import com.intellij.execution.ExecutorRegistry
+import com.intellij.execution.RunManager
+import com.intellij.execution.RunnerAndConfigurationSettings
+import com.intellij.execution.configurations.ConfigurationTypeUtil
 import com.intellij.execution.executors.DefaultRunExecutor
-import com.intellij.execution.impl.RunManagerImpl
 import com.intellij.execution.lineMarker.RunLineMarkerContributor
 import com.intellij.execution.runners.ExecutionEnvironmentBuilder
 import com.intellij.icons.AllIcons
@@ -16,6 +18,57 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
 class TaskLineMarkerProvider : RunLineMarkerContributor() {
     companion object {
         val TASKFILE_PATTERN = Regex("taskfile(?:\\.dist)?\\.ya?ml", RegexOption.IGNORE_CASE)
+
+        /**
+         * Returns the Taskfile run configuration for [taskName] — reusing the one registered by an
+         * earlier run, or creating and registering it the first time — and points it at [taskName]
+         * inside [taskfilePath].
+         *
+         * The lookup is scoped to [TaskRunConfigurationType], so an unrelated configuration of
+         * another type that happens to share the name is never picked up.
+         *
+         * Returns null if the platform ever hands back settings whose configuration is not a
+         * [TaskRunConfiguration]; the type-scoped lookup makes that unreachable in practice. Throws
+         * [AssertionError] if [TaskRunConfigurationType] is not registered at all, which cannot
+         * happen while this contributor is producing gutter icons.
+         */
+        internal fun prepareConfiguration(
+            project: Project,
+            taskName: String,
+            taskfilePath: String,
+        ): RunnerAndConfigurationSettings? {
+            val runManager = RunManager.getInstance(project)
+            // the platform owns the instance declared in plugin.xml, and configurations are matched
+            // to it by identity, so a freshly constructed TaskRunConfigurationType would never
+            // match an existing configuration and would duplicate one on every run
+            val configurationType =
+                ConfigurationTypeUtil.findConfigurationType(TaskRunConfigurationType::class.java)
+
+            val configurationName = "Task: $taskName"
+            // scoped to our own type: findConfigurationByName(String) matches on name alone and
+            // would return a same-named configuration of any other type
+            val existingConfiguration =
+                runManager.findConfigurationByTypeAndName(configurationType, configurationName)
+
+            val configuration =
+                existingConfiguration
+                    ?: runManager.createConfiguration(
+                        configurationName,
+                        TaskRunConfigurationType::class.java,
+                    )
+
+            // narrowing the lookup above already rules out a foreign type, so this is a guard
+            // rather than an expected branch
+            val runConfig = configuration.configuration as? TaskRunConfiguration ?: return null
+            runConfig.task = taskName
+            runConfig.filename = taskfilePath
+
+            if (existingConfiguration == null) {
+                runManager.addConfiguration(configuration)
+            }
+
+            return configuration
+        }
     }
 
     override fun getInfo(element: PsiElement): Info? {
@@ -56,29 +109,10 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
         private val taskfilePath: String,
     ) : AnAction() {
         override fun actionPerformed(e: AnActionEvent) {
-            val runManager = RunManagerImpl.getInstanceImpl(project)
-            val configurationType = TaskRunConfigurationType()
+            val configuration = prepareConfiguration(project, taskName, taskfilePath) ?: return
 
-            val configurationName = "Task: $taskName"
-            val existingConfiguration = runManager.findConfigurationByName(configurationName)
-
-            val configuration =
-                if (existingConfiguration != null) {
-                    existingConfiguration
-                } else {
-                    val factory = configurationType.configurationFactories[0]
-                    runManager.createConfiguration(configurationName, factory)
-                }
-
-            val runConfig = configuration.configuration as TaskRunConfiguration
-            runConfig.task = taskName
-            runConfig.filename = taskfilePath
-
-            if (existingConfiguration == null) {
-                runManager.addConfiguration(configuration)
-            }
-
-            runManager.selectedConfiguration = configuration
+            // must run after the configuration is registered, and on the EDT
+            RunManager.getInstance(project).selectedConfiguration = configuration
 
             try {
                 val executor =
