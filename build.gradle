@@ -1,64 +1,77 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
     id 'com.ncorti.ktfmt.gradle' version '0.22.0'
     id 'org.jetbrains.kotlin.jvm' version '2.1.10'
-    id 'org.jetbrains.intellij' version '1.17.4'
+    id 'org.jetbrains.intellij.platform' version '2.18.1'
 }
 
 group = 'lechuck'
 version = '1.8.0'
 
+// bytecode stays at 17: the plugin still supports 2024.1, whose runtime is JBR 17.
+// The toolchain also keeps JDK 21/25 APIs out of reach at compile time.
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    toolchain { languageVersion = JavaLanguageVersion.of(17) }
 }
 
-tasks.withType(KotlinJvmCompile).configureEach {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_17)
-        freeCompilerArgs.add("-opt-in=kotlin.RequiresOptIn")
-    }
+kotlin {
+    jvmToolchain(17)
 }
 
 repositories {
     mavenCentral()
+    intellijPlatform { defaultRepositories() }
 }
 
+// See
+// - https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
+// - https://jb.gg/intellij-platform-versions
 dependencies {
+    intellijPlatform {
+        // useInstaller defaults to true in IPGP 2.x, which pulls a large OS/arch-specific
+        // installer. false keeps the platform-independent Maven zip the 1.x plugin used.
+        create('IC', '2024.1') {
+            useInstaller = false
+        }
+        bundledPlugin 'org.jetbrains.plugins.yaml'
+        // IPGP 2.x no longer puts the platform test framework on the test classpath
+        // implicitly; BasePlatformTestCase comes from here.
+        // '.INSTANCE' is needed because TestFrameworkType.Platform is a Kotlin object.
+        testFramework TestFrameworkType.Platform.INSTANCE
+    }
+    // gradle.properties sets kotlin.stdlib.default.dependency=false, so the stdlib
+    // has to be requested explicitly to keep it bundled in the plugin distribution.
     implementation 'org.jetbrains.kotlin:kotlin-stdlib'
     implementation 'com.fasterxml.jackson.core:jackson-core:2.18.3'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.3'
     testImplementation 'junit:junit:4.13.2'
 }
 
-// See 
-// - https://github.com/JetBrains/gradle-intellij-plugin/
-// - https://jb.gg/intellij-platform-versions
-intellij {
-    version = '2024.1'
-    updateSinceUntilBuild = false
-    plugins = ['org.jetbrains.plugins.yaml']
-}
-
-buildSearchableOptions {
-    enabled = false
-}
-
-patchPluginXml {
-    version = project.version
-    sinceBuild = '241'
+intellijPlatform {
+    buildSearchableOptions = false
+    pluginConfiguration {
+        version = project.version
+        ideaVersion {
+            sinceBuild = '241'
+            // no upper bound, same as updateSinceUntilBuild=false produced before
+            untilBuild = provider { null }
+        }
+    }
+    publishing {
+        token = System.getenv('ORG_GRADLE_PROJECT_intellijPublishToken')
+    }
 }
 
 jar {
     from('LICENSE')
 }
 
-
-
-publishPlugin {
-    token = System.getenv('ORG_GRADLE_PROJECT_intellijPublishToken')
+// IPGP 2.x does not wire buildPlugin into assemble/build the way the 1.x plugin did,
+// so 'build' would stop producing build/distributions/*.zip. CI (release.yml), README
+// and Taskfile.yml all rely on 'build' creating the distribution.
+tasks.named('build') {
+    dependsOn 'buildPlugin'
 }
 
 ktfmt {
