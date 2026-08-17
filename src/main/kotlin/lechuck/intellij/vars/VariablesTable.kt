@@ -306,6 +306,8 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
                     while (pos > 0 && pair[pos - 1] == '\\') {
                         pos = pair.indexOf('=', pos + 1)
                     }
+                    // every '=' was escaped: no separator, so there is no pair to add
+                    if (pos <= 0) continue
                     val key = StringUtil.unescapeStringCharacters(pair.substring(0, pos)).trim()
                     val value = StringUtil.unescapeStringCharacters(pair.substring(pos + 1))
                     result[key] = value
