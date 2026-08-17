@@ -50,7 +50,7 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
               test:
                 cmds:
                   - echo "test"
-        """
+            """
                 .trimIndent()
 
         val file = myFixture.configureByText("Taskfile.yml", yamlFile)
@@ -71,7 +71,7 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
               test:
                 cmds:
                   - echo "test"
-        """
+            """
                 .trimIndent()
 
         val file = myFixture.configureByText("Taskfile.yml", yamlFile)
@@ -91,7 +91,7 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
               object-cmd:
                 cmds:
                   - echo "object"
-        """
+            """
                 .trimIndent()
 
         val file = myFixture.configureByText("Taskfile.yml", yamlFile)

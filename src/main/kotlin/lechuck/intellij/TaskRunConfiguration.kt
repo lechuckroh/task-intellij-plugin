@@ -91,12 +91,11 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
     /** read v1.0 format */
     private fun readExternalV1(element: Element) {
         val list = element.getChildren("option")
-        val valueMap =
-            list.associate { option: Element ->
-                val name = option.getAttributeValue("name")
-                val value = option.getAttributeValue("value")
-                name to value
-            }
+        val valueMap = list.associate { option: Element ->
+            val name = option.getAttributeValue("name")
+            val value = option.getAttributeValue("value")
+            name to value
+        }
         taskPath = valueMap["taskPath"] ?: ""
         task = valueMap["task"] ?: ""
         filename = valueMap["taskfile"] ?: ""
