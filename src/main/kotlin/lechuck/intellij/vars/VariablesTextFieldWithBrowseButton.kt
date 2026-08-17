@@ -78,22 +78,6 @@ class VariablesTextFieldWithBrowseButton :
         return AllIcons.General.InlineVariablesHover
     }
 
-    private fun stringifyVars(varData: VariablesData): String {
-        if (varData.vars.isEmpty()) {
-            return ""
-        }
-        val buf = StringBuilder()
-        for ((key, value) in varData.vars) {
-            if (buf.isNotEmpty()) {
-                buf.append(";")
-            }
-            buf.append(StringUtil.escapeChar(key, ';'))
-                .append("=")
-                .append(StringUtil.escapeChar(value, ';'))
-        }
-        return buf.toString()
-    }
-
     override fun addChangeListener(l: ChangeListener) {
         myListeners.add(l)
     }
@@ -119,6 +103,26 @@ class VariablesTextFieldWithBrowseButton :
     companion object {
         fun convertToVariables(map: Map<String, String>): List<Variable> {
             return ContainerUtil.map(map.entries) { (key, value) -> Variable(key, value) }
+        }
+
+        /**
+         * Renders variables for the text field. [VariablesTable.parseVarsFromText] reads values
+         * back unchanged; a name containing '=' does not survive, since it is not escaped here.
+         */
+        internal fun stringifyVars(varData: VariablesData): String {
+            if (varData.vars.isEmpty()) {
+                return ""
+            }
+            val buf = StringBuilder()
+            for ((key, value) in varData.vars) {
+                if (buf.isNotEmpty()) {
+                    buf.append(";")
+                }
+                buf.append(VariablesTable.escape(key, ';'))
+                    .append("=")
+                    .append(VariablesTable.escape(value, ';'))
+            }
+            return buf.toString()
         }
     }
 }

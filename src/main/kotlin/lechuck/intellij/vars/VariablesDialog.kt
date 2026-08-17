@@ -46,17 +46,9 @@ class VariablesDialog(private val parent: VariablesTextFieldWithBrowseButton) :
 
     override fun doValidate(): ValidationInfo? {
         for (variable in varTable.getVariables()) {
-            val name = variable.name
-            val value = variable.value
-            if (name.isEmpty() && value.isEmpty()) {
-                continue
-            }
-
-            if (!EnvironmentUtil.isValidName(name)) {
-                return ValidationInfo("Invalid variable name: $name")
-            }
-            if (!EnvironmentUtil.isValidValue(value)) {
-                return ValidationInfo("Invalid variable value: $name = $value")
+            val error = validationError(variable.name, variable.value)
+            if (error != null) {
+                return ValidationInfo(error)
             }
         }
         return super.doValidate()
@@ -73,6 +65,32 @@ class VariablesDialog(private val parent: VariablesTextFieldWithBrowseButton) :
         }
         parent.setVars(vars)
         super.doOKAction()
+    }
+
+    companion object {
+        /** @return the message to show, or null if the variable is acceptable */
+        internal fun validationError(name: String, value: String): String? {
+            if (name.isEmpty() && value.isEmpty()) {
+                return null
+            }
+            if (!EnvironmentUtil.isValidName(name)) {
+                return "Invalid variable name: $name"
+            }
+            if (!EnvironmentUtil.isValidValue(value)) {
+                return "Invalid variable value: $name = $value"
+            }
+            // task interpolates variables into the shell command, so a line break in one ends the
+            // command and the rest is run as another: 'task NAME=a<newline>b' fails with exit 127
+            if (containsLineBreak(name)) {
+                return "Variable name cannot contain a line break"
+            }
+            if (containsLineBreak(value)) {
+                return "Variable value cannot contain a line break: $name"
+            }
+            return null
+        }
+
+        private fun containsLineBreak(s: String) = s.contains('\n') || s.contains('\r')
     }
 
     private class MyVariablesTable(list: List<Variable>) : VariablesTable() {

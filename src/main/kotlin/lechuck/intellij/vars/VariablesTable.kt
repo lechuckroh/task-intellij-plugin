@@ -2,7 +2,6 @@ package lechuck.intellij.vars
 
 import com.intellij.execution.ExecutionBundle
 import com.intellij.execution.util.ListTableWithButtons
-import com.intellij.execution.util.StringWithNewLinesCellEditor
 import com.intellij.icons.AllIcons
 import com.intellij.ide.CopyProvider
 import com.intellij.ide.PasteProvider
@@ -112,7 +111,7 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
         }
 
         override fun getEditor(variable: Variable): TableCellEditor {
-            return DefaultCellEditor(JTextField())
+            return createCellEditor()
         }
     }
 
@@ -138,7 +137,7 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
         }
 
         override fun getEditor(variable: Variable): TableCellEditor {
-            return StringWithNewLinesCellEditor()
+            return createCellEditor()
         }
     }
 
@@ -175,16 +174,8 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
                 return
             }
             stopEditing()
-            val sb = StringBuilder()
-            val variables = selection
-            for (variable in variables) {
-                if (isEmpty(variable)) continue
-                if (sb.isNotEmpty()) sb.append(';')
-                sb.append(StringUtil.escapeChars(variable.name, '=', ';'))
-                    .append('=')
-                    .append(StringUtil.escapeChars(variable.value, '=', ';'))
-            }
-            CopyPasteManager.getInstance().setContents(StringSelection(sb.toString()))
+            val text = stringifyForCopy(selection.filterNot { isEmpty(it) })
+            CopyPasteManager.getInstance().setContents(StringSelection(text))
         }
 
         override fun isCopyEnabled(dataContext: DataContext): Boolean {
@@ -283,37 +274,118 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
     }
 
     companion object {
+        /**
+         * Characters a backslash may escape. A backslash before anything else is a literal
+         * character, which is what lets a Windows path like `C:\temp\new` be typed as-is.
+         *
+         * The backslash itself must be in this set. Without it the encoding is not reversible, and
+         * a value ending in a backslash would swallow the following variable.
+         *
+         * The cost is that text from elsewhere is read by these rules too, so a pasted `\\server`
+         * arrives as `\server`. Reversibility for what this table writes is worth more.
+         */
+        private const val ESCAPABLE = "\\;="
+
+        /** Both columns use a plain text field, whose document filters newlines. */
+        internal fun createCellEditor(): TableCellEditor = DefaultCellEditor(JTextField())
+
+        /**
+         * Reads the `name=value;name=value` form written by [stringifyForCopy] and by
+         * `VariablesTextFieldWithBrowseButton.stringifyVars`.
+         */
         fun parseVarsFromText(content: String?): Map<String, String> {
             val result: MutableMap<String, String> = LinkedHashMap()
-            if (content != null && content.contains("=")) {
-                val pairs = mutableListOf<String>()
-                var start = 0
-                var end: Int
-                while (true) {
-                    end = content.indexOf(";", start)
-                    if (end == -1 || start >= content.length) {
-                        if (start < content.length) {
-                            pairs.add(content.substring(start).replace("\\;", ";"))
-                        }
-                        break
-                    }
-                    pairs.add(content.substring(start, end).replace("\\;", ";"))
-                    start = end + 1
-                }
-                for (pair in pairs) {
-                    var pos = pair.indexOf('=')
-                    if (pos <= 0) continue
-                    while (pos > 0 && pair[pos - 1] == '\\') {
-                        pos = pair.indexOf('=', pos + 1)
-                    }
-                    // every '=' was escaped: no separator, so there is no pair to add
-                    if (pos <= 0) continue
-                    val key = StringUtil.unescapeStringCharacters(pair.substring(0, pos)).trim()
-                    val value = StringUtil.unescapeStringCharacters(pair.substring(pos + 1))
-                    result[key] = value
-                }
+            if (content == null || !content.contains("=")) {
+                return result
+            }
+
+            for (pair in splitOnSeparators(content)) {
+                val pos = indexOfUnescaped(pair, '=')
+                // no separator, or nothing before it: there is no pair to add
+                if (pos <= 0) continue
+                result[unescape(pair.substring(0, pos)).trim()] = unescape(pair.substring(pos + 1))
             }
             return result
+        }
+
+        /**
+         * Renders variables for the clipboard. Unlike the text field writer, this escapes '=' too,
+         * so a name containing one survives the round trip.
+         */
+        internal fun stringifyForCopy(vars: List<Variable>): String {
+            val buf = StringBuilder()
+            for (variable in vars) {
+                if (buf.isNotEmpty()) {
+                    buf.append(';')
+                }
+                buf.append(escape(variable.name, '=', ';'))
+                    .append('=')
+                    .append(escape(variable.value, '=', ';'))
+            }
+            return buf.toString()
+        }
+
+        /** Escapes [chars] so that [parseVarsFromText] reads the string back unchanged. */
+        internal fun escape(s: String, vararg chars: Char): String {
+            // escaping anything else would not survive the round trip
+            require(chars.all { it in ESCAPABLE }) { "not escapable: ${chars.toList()}" }
+            val buf = StringBuilder(s.length)
+            for (c in s) {
+                // the backslash is always escaped, otherwise the encoding is ambiguous
+                if (c == '\\' || chars.contains(c)) {
+                    buf.append('\\')
+                }
+                buf.append(c)
+            }
+            return buf.toString()
+        }
+
+        private fun unescape(s: String): String {
+            val buf = StringBuilder(s.length)
+            var i = 0
+            while (i < s.length) {
+                val c = s[i]
+                if (c == '\\' && i + 1 < s.length && s[i + 1] in ESCAPABLE) {
+                    buf.append(s[i + 1])
+                    i += 2
+                } else {
+                    buf.append(c)
+                    i++
+                }
+            }
+            return buf.toString()
+        }
+
+        /** Index of the first [target] not preceded by a backslash, or -1. */
+        private fun indexOfUnescaped(s: String, target: Char, from: Int = 0): Int {
+            var i = from
+            while (i < s.length) {
+                val c = s[i]
+                if (c == '\\' && i + 1 < s.length && s[i + 1] in ESCAPABLE) {
+                    i += 2
+                    continue
+                }
+                if (c == target) {
+                    return i
+                }
+                i++
+            }
+            return -1
+        }
+
+        /** Splits on ';', leaving an escaped one inside the value it belongs to. */
+        private fun splitOnSeparators(content: String): List<String> {
+            val parts = mutableListOf<String>()
+            var start = 0
+            while (true) {
+                val end = indexOfUnescaped(content, ';', start)
+                if (end < 0) {
+                    parts.add(content.substring(start))
+                    return parts
+                }
+                parts.add(content.substring(start, end))
+                start = end + 1
+            }
         }
     }
 }
