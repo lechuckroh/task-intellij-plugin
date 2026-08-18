@@ -8,6 +8,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.PathMacros
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.components.PathMacroManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.SettingsEditor
@@ -18,6 +19,7 @@ import com.intellij.openapi.ui.TextBrowseFolderListener
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.ui.DocumentAdapter
@@ -27,6 +29,7 @@ import com.intellij.ui.components.fields.ExpandableTextField
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.UIUtil
 import java.awt.BorderLayout
+import java.util.concurrent.atomic.AtomicLong
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
@@ -53,6 +56,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
     private val mapper =
         ObjectMapper(YAMLFactory())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    private val completionRequestId = AtomicLong(0)
 
     private val panel: JPanel by lazy {
         FormBuilder.createFormBuilder()
@@ -98,8 +102,17 @@ class TaskRunConfigurationEditor(private val project: Project) :
         )
     }
 
+    /**
+     * Rebuilds the Task field's completion list from [filename].
+     *
+     * Every keystroke in the Taskfile field starts a lookup, and pooled threads finish in any
+     * order, so a lookup over a large file could publish its list after a later lookup over a small
+     * one and leave the previous file's tasks in the completion list. Each call claims a request id
+     * and only the newest claim is allowed to publish.
+     */
     private fun updateTargetCompletion(filename: String) {
-        val file = LocalFileSystem.getInstance().findFileByPath(filename)
+        val requestId = completionRequestId.incrementAndGet()
+        val file = resolveTaskfile(filename)
         if (file != null) {
             ApplicationManager.getApplication().executeOnPooledThread {
                 val psiFile =
@@ -108,19 +121,55 @@ class TaskRunConfigurationEditor(private val project: Project) :
                     }
                 val results = psiFile?.let { findTasks(it) } ?: emptyList()
 
-                SwingUtilities.invokeLater { taskCompletionProvider.setItems(results) }
+                SwingUtilities.invokeLater {
+                    if (requestId == completionRequestId.get()) {
+                        taskCompletionProvider.setItems(results)
+                    }
+                }
             }
         } else {
+            // no id check here: both callers of this method run on the EDT, so claiming the id
+            // above has already stopped every lookup still in flight from publishing
             taskCompletionProvider.setItems(emptyList())
         }
     }
 
-    private fun findTasks(file: PsiFile): Collection<String> {
+    /**
+     * Locates the Taskfile the completion list is built from, or null when [filename] names no
+     * existing file.
+     *
+     * The path is macro-expanded first. `$PROJECT_DIR$/Taskfile.yml` is a valid entry — running the
+     * configuration expands it too, see [TaskRunConfiguration.buildCommandLine] — but no such path
+     * exists on disk, so looking up the literal text would find nothing and leave the completion
+     * list empty with no visible error.
+     *
+     * Expansion is as far as the resemblance to the run path goes. A path still relative after
+     * expansion is resolved here against the IDE process's working directory, while running the
+     * configuration resolves it against the project root. A relative entry therefore draws its
+     * completions from the wrong file, or from none. Expanding macros neither caused that nor fixes
+     * it.
+     *
+     * An empty [filename] expands to itself and resolves to that same process working directory
+     * rather than to null, as it did before. It stays harmless: a directory has no [PsiFile], so
+     * the caller ends up with an empty list.
+     */
+    internal fun resolveTaskfile(filename: String): VirtualFile? {
+        val expandedPath = PathMacroManager.getInstance(project).expandPath(filename)
+        return LocalFileSystem.getInstance().findFileByPath(expandedPath)
+    }
+
+    /**
+     * Parses the task names out of [file].
+     *
+     * The text comes from the PSI rather than from the file's bytes, so a task typed into the
+     * editor but not saved yet still shows up in the completion list. The PSI follows the document
+     * as of the last commit, which the platform performs between keystrokes.
+     */
+    internal fun findTasks(file: PsiFile): Collection<String> {
         return try {
-            file.virtualFile.inputStream.use { `is` ->
-                val taskfile: Taskfile = mapper.readValue(`is`, Taskfile::class.java)
-                taskfile.tasks?.keys ?: emptyList()
-            }
+            val text = ReadAction.compute<String, RuntimeException> { file.text }
+            val taskfile: Taskfile = mapper.readValue(text, Taskfile::class.java)
+            taskfile.tasks?.keys ?: emptyList()
         } catch (e: Exception) {
             LOG.warn("Failed to parse Taskfile: ${file.name}", e)
             emptyList()
