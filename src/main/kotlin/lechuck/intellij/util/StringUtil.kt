@@ -4,8 +4,8 @@ object StringUtil {
     /**
      * Parses the v1.3 `key=value;...` variables attribute.
      *
-     * Intentionally does not handle escaping — it must keep reading settings exactly as
-     * v1.3 wrote them.
+     * Intentionally does not handle escaping — it must keep reading settings exactly as v1.3 wrote
+     * them.
      */
     fun splitVars(str: String): Map<String, String> {
         val varMap = mutableMapOf<String, String>()
