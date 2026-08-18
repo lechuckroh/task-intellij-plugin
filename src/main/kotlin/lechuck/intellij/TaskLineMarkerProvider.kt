@@ -11,6 +11,7 @@ import com.intellij.execution.runners.ExecutionEnvironmentBuilder
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import org.jetbrains.yaml.psi.YAMLKeyValue
@@ -18,6 +19,7 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
 class TaskLineMarkerProvider : RunLineMarkerContributor() {
     companion object {
         val TASKFILE_PATTERN = Regex("taskfile(?:\\.dist)?\\.ya?ml", RegexOption.IGNORE_CASE)
+        private val LOG = Logger.getInstance(TaskLineMarkerProvider::class.java)
 
         /**
          * Returns the Taskfile run configuration for [taskName] — reusing the one registered by an
@@ -121,7 +123,7 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
                     ExecutionEnvironmentBuilder.create(executor, configuration).buildAndExecute()
                 }
             } catch (ex: ExecutionException) {
-                ex.printStackTrace()
+                LOG.warn("Failed to execute task: $taskName", ex)
             }
         }
     }

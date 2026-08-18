@@ -8,6 +8,7 @@ import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.PathMacros
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
@@ -34,6 +35,11 @@ import lechuck.intellij.vars.VariablesComponent
 
 class TaskRunConfigurationEditor(private val project: Project) :
     SettingsEditor<TaskRunConfiguration>() {
+
+    private companion object {
+        private val LOG = Logger.getInstance(TaskRunConfigurationEditor::class.java)
+    }
+
     private val taskExecutableField = TextFieldWithBrowseButton()
     private val filenameField = TextFieldWithBrowseButton()
     private val taskCompletionProvider =
@@ -116,7 +122,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
                 taskfile.tasks?.keys ?: emptyList()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            LOG.warn("Failed to parse Taskfile: ${file.name}", e)
             emptyList()
         }
     }
