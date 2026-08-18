@@ -76,10 +76,11 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
     override fun getInfo(element: PsiElement): Info? {
         // Only process YAML files named: Taskfile.yml, taskfile.yml, Taskfile.yaml, taskfile.yaml,
         // Taskfile.dist.yml, taskfile.dist.yml, Taskfile.dist.yaml, taskfile.dist.yaml
-        val file = element.containingFile
+        val file = element.containingFile ?: return null
         if (!file.name.matches(TASKFILE_PATTERN)) {
             return null
         }
+        val virtualFile = file.virtualFile ?: return null
 
         // We want to match only the key element of a task
         if (element.parent !is YAMLKeyValue) {
@@ -101,7 +102,7 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
         // This is a task definition, create a run action
         val taskName = keyValue.keyText
         val icon = AllIcons.Actions.Execute
-        val actions = arrayOf(TaskRunAction(taskName, element.project, file.virtualFile.path))
+        val actions = arrayOf(TaskRunAction(taskName, element.project, virtualFile.path))
         return Info(icon, actions, { "Run Task: $taskName" })
     }
 
