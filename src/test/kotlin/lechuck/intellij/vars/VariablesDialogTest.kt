@@ -1,6 +1,7 @@
 package lechuck.intellij.vars
 
 import lechuck.intellij.vars.VariablesDialog.Companion.validationError
+import lechuck.intellij.vars.VariablesDialog.Companion.validationWarning
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -26,6 +27,47 @@ class VariablesDialogTest {
     @Test
     fun testRejectsEmptyName() {
         assertNotNull(validationError("", "bar"))
+    }
+
+    /**
+     * task splits a 'NAME=VALUE' argument on its first '=', so a '=' inside the name silently
+     * produces a differently-named variable. The leading '=' case is the one the old
+     * environment-variable rules let through on Windows.
+     */
+    @Test
+    fun testRejectsEqualsInName() {
+        assertEquals("Variable name cannot contain '='", validationError("A=B", "x"))
+        assertNotNull(validationError("=FOO", "x"))
+    }
+
+    /** exec silently truncates an argument at a NUL byte. */
+    @Test
+    fun testRejectsNulCharacter() {
+        assertNotNull(validationError("FOO", "a\u0000b"))
+        assertNotNull(validationError("FO\u0000O", "bar"))
+    }
+
+    /** Names a Taskfile cannot reference as {{.NAME}} warn, and never block saving. */
+    @Test
+    fun testWarnsOnNamesTemplatesCannotReference() {
+        assertNotNull(validationWarning("MY-VAR"))
+        assertNotNull(validationWarning("1FOO"))
+        assertNotNull(validationWarning("MY VAR"))
+
+        assertNull(validationWarning("FOO"))
+        assertNull(validationWarning("_x"))
+        assertNull(validationWarning("MY_VAR2"))
+        // Go template fields are Unicode-aware; an ASCII-only rule would flag a working name
+        assertNull(validationWarning("\ubcc0\uc218"))
+        // the trailing blank row of the table never warns
+        assertNull(validationWarning(""))
+    }
+
+    /** The warning must stay a warning: these names were accepted before the check existed. */
+    @Test
+    fun testTemplateWarningIsNotABlockingError() {
+        assertNull(validationError("MY-VAR", "x"))
+        assertNull(validationError("1FOO", "x"))
     }
 
     /**
