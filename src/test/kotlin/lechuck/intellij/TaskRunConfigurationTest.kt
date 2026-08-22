@@ -1,8 +1,11 @@
 package lechuck.intellij
 
+import com.intellij.execution.configurations.RuntimeConfigurationError
+import com.intellij.execution.configurations.RuntimeConfigurationWarning
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
 import lechuck.intellij.vars.VariablesData
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
@@ -126,5 +129,89 @@ class TaskRunConfigurationTest : BasePlatformTestCase() {
             File(project.basePath, "elsewhere").path,
             cfg.buildCommandLine().workDirectory?.path,
         )
+    }
+
+    @Test
+    fun testCheckConfigurationRequiresTask() {
+        val cfg = createConfiguration()
+
+        assertThrows(RuntimeConfigurationError::class.java) { cfg.checkConfiguration() }
+    }
+
+    /** Empty optional fields are not errors: task runs from PATH against the found Taskfile. */
+    @Test
+    fun testCheckConfigurationAcceptsMinimalConfiguration() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+
+        cfg.checkConfiguration()
+    }
+
+    /** Missing files warn instead of erroring, so the run button stays enabled. */
+    @Test
+    fun testCheckConfigurationWarnsOnMissingTaskfile() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        cfg.filename = "/no/such/dir/Taskfile.yml"
+
+        assertThrows(RuntimeConfigurationWarning::class.java) { cfg.checkConfiguration() }
+    }
+
+    /** The check has to expand macros the same way buildCommandLine does. */
+    @Test
+    fun testCheckConfigurationExpandsMacroInTaskfilePath() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+
+        cfg.filename = "\$PROJECT_DIR\$/no-such-Taskfile.yml"
+        assertThrows(RuntimeConfigurationWarning::class.java) { cfg.checkConfiguration() }
+
+        val file = File(project.basePath!!, "Taskfile.yml")
+        file.parentFile.mkdirs()
+        file.writeText("tasks:\n  build: echo ok\n")
+        try {
+            cfg.filename = "\$PROJECT_DIR\$/Taskfile.yml"
+            cfg.checkConfiguration()
+        } finally {
+            file.delete()
+        }
+    }
+
+    /**
+     * A bare name is looked up through PATH and a relative path resolves against a base this check
+     * cannot know, so neither may draw a warning. buildCommandLine passes taskPath to the OS
+     * without macro expansion, so the check reads it as written too.
+     */
+    @Test
+    fun testCheckConfigurationSkipsNonAbsoluteExecutable() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+
+        cfg.taskPath = "task"
+        cfg.checkConfiguration()
+
+        cfg.taskPath = "bin/task"
+        cfg.checkConfiguration()
+    }
+
+    @Test
+    fun testCheckConfigurationWarnsOnMissingAbsoluteExecutable() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        cfg.taskPath = "/no/such/bin/task"
+
+        assertThrows(RuntimeConfigurationWarning::class.java) { cfg.checkConfiguration() }
+    }
+
+    @Test
+    fun testCheckConfigurationWarnsOnMissingWorkingDirectory() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+
+        cfg.workingDirectory = "/no/such/dir"
+        assertThrows(RuntimeConfigurationWarning::class.java) { cfg.checkConfiguration() }
+
+        cfg.workingDirectory = System.getProperty("java.io.tmpdir")
+        cfg.checkConfiguration()
     }
 }

@@ -44,6 +44,33 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         if (task.isEmpty()) {
             throw RuntimeConfigurationError("Task is not set")
         }
+
+        // The existence checks mirror buildCommandLine: filename and workingDirectory are
+        // macro-expanded there, while taskPath is handed to the OS as written. Only absolute
+        // paths are checked -- a bare executable name is looked up through PATH, and a relative
+        // path resolves against a base directory this method cannot know for certain. Missing
+        // paths are warnings rather than errors, so the run button stays enabled: the file may
+        // legitimately appear only later, e.g. be generated right before the run.
+        val macroManager = PathMacroManager.getInstance(project)
+
+        if (isMissingFile(macroManager.expandPath(filename))) {
+            throw RuntimeConfigurationWarning("Taskfile not found: $filename")
+        }
+        if (isMissingFile(taskPath)) {
+            throw RuntimeConfigurationWarning("Task executable not found: $taskPath")
+        }
+        val workDir = File(macroManager.expandPath(workingDirectory))
+        if (workingDirectory.isNotEmpty() && workDir.isAbsolute && !workDir.isDirectory) {
+            throw RuntimeConfigurationWarning("Working directory not found: $workingDirectory")
+        }
+    }
+
+    private fun isMissingFile(path: String): Boolean {
+        if (path.isEmpty()) {
+            return false
+        }
+        val file = File(path)
+        return file.isAbsolute && !file.isFile
     }
 
     override fun getConfigurationEditor() = TaskRunConfigurationEditor(project)
