@@ -149,12 +149,35 @@ class VariablesTableTest {
         assertEquals(linkedMapOf("a" to "b", "c" to "d\n"), parseVarsFromText("a=b;c=d\n"))
     }
 
+    /**
+     * Pins platform-inherited behavior rather than a choice made here: the parser trims the key but
+     * keeps the value as written, so padding around a key does not survive a round trip while
+     * padding inside a value (a path with spaces, say) does.
+     */
+    @Test
+    fun testParseTrimsKeyButNotValue() {
+        assertEquals(mapOf("a" to "b"), parseVarsFromText(" a =b"))
+        assertEquals(mapOf("a" to " b "), parseVarsFromText("a= b "))
+    }
+
     // --- round trip through the writer ---
 
     private fun roundTrip(vars: Map<String, String>): Map<String, String> =
         parseVarsFromText(
             VariablesTextFieldWithBrowseButton.stringifyVars(VariablesData.create(vars))
         )
+
+    /**
+     * A naive assertEquals on the maps' toString would pass by accident here: both {"A=X": "c"} and
+     * {"A": "X=c"} print as {A=X=c}. The keys are compared directly.
+     */
+    @Test
+    fun testRoundTripKeyContainingEquals() {
+        val result = roundTrip(mapOf("A=X" to "c"))
+
+        assertEquals(setOf("A=X"), result.keys)
+        assertEquals("c", result["A=X"])
+    }
 
     @Test
     fun testRoundTripPlainValues() {

@@ -309,8 +309,8 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
         }
 
         /**
-         * Renders variables for the clipboard. Unlike the text field writer, this escapes '=' too,
-         * so a name containing one survives the round trip.
+         * Renders variables for the clipboard. Escapes '=' in values as well, where the text field
+         * writer leaves them plain for readability; both forms parse back identically.
          */
         internal fun stringifyForCopy(vars: List<Variable>): String {
             val buf = StringBuilder()

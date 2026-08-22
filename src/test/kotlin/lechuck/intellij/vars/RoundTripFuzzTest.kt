@@ -43,11 +43,26 @@ class RoundTripFuzzTest {
     fun testValuesRoundTripThroughTextField() {
         val failures =
             strings(3).mapNotNull { value ->
-                // the text field writer does not escape '=', so names stay plain here
                 val vars = linkedMapOf("A" to value, "B" to "y")
                 val got = textFieldRoundTrip(vars)
                 if (got == vars) null else "value=[$value] -> $got"
             }
+        assertNoFailures(failures)
+    }
+
+    @Test
+    fun testNamesAndValuesRoundTripThroughTextField() {
+        val failures = mutableListOf<String>()
+        for (name in strings(2)) {
+            // an empty or padded name is not preserved: the parser trims and skips those
+            if (name.isEmpty() || name != name.trim()) continue
+            for (value in strings(2)) {
+                val vars = linkedMapOf(name to value, "B" to "y")
+                if (vars.size != 2) continue
+                val got = textFieldRoundTrip(vars)
+                if (got != vars) failures.add("name=[$name] value=[$value] -> $got")
+            }
+        }
         assertNoFailures(failures)
     }
 

@@ -106,8 +106,8 @@ class VariablesTextFieldWithBrowseButton :
         }
 
         /**
-         * Renders variables for the text field. [VariablesTable.parseVarsFromText] reads values
-         * back unchanged; a name containing '=' does not survive, since it is not escaped here.
+         * Renders variables for the text field. [VariablesTable.parseVarsFromText] reads names and
+         * values back unchanged, except that padding around a name is trimmed away.
          */
         internal fun stringifyVars(varData: VariablesData): String {
             if (varData.vars.isEmpty()) {
@@ -118,7 +118,11 @@ class VariablesTextFieldWithBrowseButton :
                 if (buf.isNotEmpty()) {
                     buf.append(";")
                 }
-                buf.append(VariablesTable.escape(key, ';'))
+                // '=' must be escaped in the key or a key containing one shifts the
+                // key/value split on the way back: {"A=X": "c"} -> "A=X=c" -> {"A": "X=c"}.
+                // Values need no '=' escaping -- the parser splits at the first unescaped
+                // '=' -- and leaving them plain keeps the text field readable.
+                buf.append(VariablesTable.escape(key, '=', ';'))
                     .append("=")
                     .append(VariablesTable.escape(value, ';'))
             }
