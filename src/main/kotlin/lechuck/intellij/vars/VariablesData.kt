@@ -45,8 +45,4 @@ data class VariablesData(val vars: Map<String, String>) {
         }
         parent.addContent(varsElement)
     }
-
-    fun with(vars: Map<String, String>): VariablesData {
-        return VariablesData(vars)
-    }
 }

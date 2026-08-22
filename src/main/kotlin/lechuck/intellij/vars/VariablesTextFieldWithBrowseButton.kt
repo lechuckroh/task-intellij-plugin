@@ -32,7 +32,7 @@ class VariablesTextFieldWithBrowseButton :
                 override fun textChanged(@NotNull e: DocumentEvent) {
                     if (!StringUtil.equals(stringifyVars(myData), text)) {
                         val textVars: Map<String, String> = VariablesTable.parseVarsFromText(text)
-                        myData = myData.with(textVars)
+                        myData = VariablesData.create(textVars)
                         fireStateChanged()
                     }
                 }
@@ -54,7 +54,7 @@ class VariablesTextFieldWithBrowseButton :
      *   user-specified, like [LinkedHashMap] or [ImmutableMap])
      */
     fun setVars(vars: Map<String, String>) {
-        setData(myData.with(vars))
+        setData(VariablesData.create(vars))
     }
 
     fun getData(): VariablesData {
