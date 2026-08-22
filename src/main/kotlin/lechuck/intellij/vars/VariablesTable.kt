@@ -189,10 +189,10 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
         override fun performPaste(dataContext: DataContext) {
             val content =
                 CopyPasteManager.getInstance().getContents<String>(DataFlavor.stringFlavor)
-            if (StringUtil.isEmpty(content)) {
+            if (content.isNullOrEmpty()) {
                 return
             }
-            val map = parseVarsFromText(content)
+            val map = parsePastedText(content)
             val view = tableView
             if (view.isEditing || map.isEmpty()) {
                 var row = view.editingRow
@@ -304,6 +304,26 @@ open class VariablesTable : ListTableWithButtons<Variable>() {
                 // no separator, or nothing before it: there is no pair to add
                 if (pos <= 0) continue
                 result[unescape(pair.substring(0, pos)).trim()] = unescape(pair.substring(pos + 1))
+            }
+            return result
+        }
+
+        /**
+         * Parses clipboard content for [performPaste]. The text field format is one line with ';'
+         * separators, but the natural thing to paste into a variables table is .env-style text, so
+         * line breaks are treated as pair separators here, as the platform's EnvVariablesTable also
+         * does for multi-line clipboard text. Unlike the platform, ';' still separates pairs within
+         * a line, and '#' comment lines are dropped. Only the paste path reads newlines this way;
+         * [parseVarsFromText] keeps them as ordinary characters, since task variables cannot
+         * contain them and the text field never renders them.
+         */
+        internal fun parsePastedText(content: String): Map<String, String> {
+            val result = LinkedHashMap<String, String>()
+            for (line in content.lines()) {
+                if (line.trim().startsWith("#")) {
+                    continue
+                }
+                result.putAll(parseVarsFromText(line))
             }
             return result
         }

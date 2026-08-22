@@ -2,6 +2,7 @@ package lechuck.intellij.vars
 
 import javax.swing.DefaultCellEditor
 import javax.swing.JTextField
+import lechuck.intellij.vars.VariablesTable.Companion.parsePastedText
 import lechuck.intellij.vars.VariablesTable.Companion.parseVarsFromText
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -158,6 +159,66 @@ class VariablesTableTest {
     fun testParseTrimsKeyButNotValue() {
         assertEquals(mapOf("a" to "b"), parseVarsFromText(" a =b"))
         assertEquals(mapOf("a" to " b "), parseVarsFromText("a= b "))
+    }
+
+    // --- paste-path parsing: newline is a pair separator only here ---
+
+    @Test
+    fun testPasteParsesEnvStyleLines() {
+        assertEquals(
+            linkedMapOf("PATH" to "/usr/bin;/bin", "FOO" to "bar"),
+            parsePastedText("PATH=/usr/bin\\;/bin\nFOO=bar"),
+        )
+    }
+
+    /** The common case: one copied line drags its trailing newline along. */
+    @Test
+    fun testPasteDropsTrailingNewline() {
+        assertEquals(mapOf("FOO" to "bar"), parsePastedText("FOO=bar\n"))
+    }
+
+    @Test
+    fun testPasteHandlesCrlfAndBlankLines() {
+        assertEquals(
+            linkedMapOf("A" to "1", "B" to "2"),
+            parsePastedText("A=1\r\n\r\nB=2\r\n"),
+        )
+    }
+
+    /** '#' comment lines are dropped even when they contain '='. */
+    @Test
+    fun testPasteSkipsCommentLines() {
+        assertEquals(
+            mapOf("FOO" to "bar"),
+            parsePastedText("# FOO=disabled\nFOO=bar\n  # trailing=comment"),
+        )
+    }
+
+    /** Within one line the text field rules still apply, so ';' still separates pairs. */
+    @Test
+    fun testPasteKeepsSemicolonSeparatorWithinLine() {
+        assertEquals(
+            linkedMapOf("A" to "1", "B" to "2", "C" to "3"),
+            parsePastedText("A=1;B=2\nC=3"),
+        )
+    }
+
+    @Test
+    fun testPasteIgnoresLinesWithoutPairs() {
+        assertEquals(emptyMap<String, String>(), parsePastedText("no pairs here\n\njust text"))
+        assertEquals(mapOf("A" to "1"), parsePastedText("junk\nA=1"))
+    }
+
+    /**
+     * A later line wins over an earlier one, and the row keeps its original position -- Map.equals
+     * ignores order, so the pinning goes through toList().
+     */
+    @Test
+    fun testPasteLastDuplicateWinsInPlace() {
+        assertEquals(
+            listOf("A" to "3", "B" to "2"),
+            parsePastedText("A=1\nB=2\nA=3").toList(),
+        )
     }
 
     // --- round trip through the writer ---
