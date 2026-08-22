@@ -74,19 +74,26 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
     }
 
     override fun getInfo(element: PsiElement): Info? {
+        // getInfo runs for every PSI element the editor shows, so the checks are ordered
+        // cheapest-rejection-first. A task-name key is always a leaf token, which dismisses
+        // every element with children before any other work. LineMarkerProvider documents the
+        // leaf-only convention, and the platform logs an error for non-leaf markers.
+        if (element.firstChild != null) {
+            return null
+        }
+
         // Only process YAML files named: Taskfile.yml, taskfile.yml, Taskfile.yaml, taskfile.yaml,
         // Taskfile.dist.yml, taskfile.dist.yml, Taskfile.dist.yaml, taskfile.dist.yaml
         val file = element.containingFile ?: return null
         if (!file.name.matches(TASKFILE_PATTERN)) {
             return null
         }
-        val virtualFile = file.virtualFile ?: return null
 
         // We want to match only the key element of a task
-        if (element.parent !is YAMLKeyValue) {
+        val keyValue = element.parent as? YAMLKeyValue ?: return null
+        if (element != keyValue.key) {
             return null
         }
-        val keyValue = element.parent as YAMLKeyValue
 
         // Check if this key is directly under the tasks section
         val tasksSection = keyValue.parent?.parent
@@ -94,12 +101,8 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
             return null
         }
 
-        // Check if we're on the key element itself
-        if (element != keyValue.key) {
-            return null
-        }
-
         // This is a task definition, create a run action
+        val virtualFile = file.virtualFile ?: return null
         val taskName = keyValue.keyText
         val icon = AllIcons.Actions.Execute
         val actions = arrayOf(TaskRunAction(taskName, element.project, virtualFile.path))

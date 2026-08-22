@@ -259,6 +259,73 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
             .filter { it.name == name }
     }
 
+    /**
+     * The leaf-first rejection in getInfo assumes a task-name key is always a leaf token. A quoted
+     * key is the nearest thing to a counterexample the YAML PSI offers, so this pins that the
+     * assumption holds for it too.
+     */
+    @Test
+    fun testGetInfoForQuotedTaskKey() {
+        val yamlFile =
+            """
+            tasks:
+              "quoted-cmd":
+                cmds:
+                  - echo "q"
+            """
+                .trimIndent()
+
+        val file = myFixture.configureByText("Taskfile.yml", yamlFile)
+        val taskKey = findTaskKey(file, "quoted-cmd")
+
+        assertNotNull(taskKey)
+        assertNull("the key element must be a leaf token", taskKey!!.firstChild)
+        val info = provider.getInfo(taskKey)
+        assertNotNull("Should return Info for a quoted task key", info)
+        // the quotes are YAML syntax, not part of the task name
+        assertEquals("Run Task: quoted-cmd", info?.tooltipProvider?.apply(taskKey))
+    }
+
+    /** A flow-style mapping is the least obvious case where the key is still a leaf token. */
+    @Test
+    fun testGetInfoForFlowStyleTaskKey() {
+        val yamlFile =
+            """
+            tasks: { build: echo flow }
+            """
+                .trimIndent()
+
+        val file = myFixture.configureByText("Taskfile.yml", yamlFile)
+        val taskKey = findTaskKey(file, "build")
+
+        assertNotNull(taskKey)
+        assertNull("the flow key element must be a leaf token", taskKey!!.firstChild)
+        assertNotNull("Should return Info for a flow-style task key", provider.getInfo(taskKey))
+    }
+
+    /** getInfo attaches to the key token itself, never to a composite element above it. */
+    @Test
+    fun testGetInfoForCompositeElement() {
+        val yamlFile =
+            """
+            tasks:
+              test:
+                cmds:
+                  - echo "test"
+            """
+                .trimIndent()
+
+        val file = myFixture.configureByText("Taskfile.yml", yamlFile)
+        val keyValue =
+            PsiTreeUtil.findChildrenOfType(file, YAMLKeyValue::class.java).find {
+                it.keyText == "test"
+            }
+
+        assertNotNull(keyValue)
+        assertNull("Should return null for the composite key-value", provider.getInfo(keyValue!!))
+        assertNull("Should return null for the file", provider.getInfo(file))
+    }
+
     private fun findTaskKey(file: PsiFile, taskName: String): PsiElement? {
         return PsiTreeUtil.findChildrenOfType(file, YAMLKeyValue::class.java)
             .find { it.keyText == taskName && it.parent?.parent is YAMLKeyValue }
