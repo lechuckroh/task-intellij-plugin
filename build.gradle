@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -61,6 +62,17 @@ intellijPlatform {
     publishing {
         token = System.getenv('ORG_GRADLE_PROJECT_intellijPublishToken')
     }
+}
+
+// Manual testing against a current IDE without moving the compile target: the default
+// runIde still starts 2024.1 (the minimum supported version), runIdeLatest starts the
+// version from gradle.properties. 2025.3+ ships only the unified IntelliJ IDEA
+// distribution, so the type must be IntellijIdea -- create('IC', '2026.x') is rejected.
+// Unset fields inherit from the create(...) entry above, so this resolves the Maven zip
+// (useInstaller = false) and would follow suit if that entry ever changed.
+intellijPlatformTesting.runIde.register('runIdeLatest') {
+    type = IntelliJPlatformType.IntellijIdea
+    version = providers.gradleProperty('runIdeLatestVersion')
 }
 
 jar {

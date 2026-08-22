@@ -23,6 +23,12 @@ tasks:
       - ./gradlew ktfmtFormat
 
   runIde:
+    desc: Run the latest IDE (manual testing)
+    cmds:
+      - ./gradlew runIdeLatest
+
+  runIdeMin:
+    desc: Run the minimum supported IDE (compile target)
     cmds:
       - ./gradlew runIde
 
