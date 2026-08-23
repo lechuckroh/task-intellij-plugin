@@ -10,7 +10,8 @@ import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.execution.ui.ConsoleView
 import com.intellij.openapi.components.PathMacroManager
 import com.intellij.openapi.project.Project
-import com.intellij.terminal.TerminalExecutionConsole
+import com.intellij.terminal.TerminalExecutionConsoleBuilder
+import com.jediterm.core.util.TermSize
 import java.io.File
 import lechuck.intellij.util.StringUtil.splitVars
 import lechuck.intellij.vars.VariablesData
@@ -53,13 +54,13 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         // legitimately appear only later, e.g. be generated right before the run.
         val macroManager = PathMacroManager.getInstance(project)
 
-        if (isMissingFile(macroManager.expandPath(filename))) {
+        if (isMissingFile(macroManager.expandPath(filename) ?: filename)) {
             throw RuntimeConfigurationWarning("Taskfile not found: $filename")
         }
         if (isMissingFile(taskPath)) {
             throw RuntimeConfigurationWarning("Task executable not found: $taskPath")
         }
-        val workDir = File(macroManager.expandPath(workingDirectory))
+        val workDir = File(macroManager.expandPath(workingDirectory) ?: workingDirectory)
         if (workingDirectory.isNotEmpty() && workDir.isAbsolute && !workDir.isDirectory) {
             throw RuntimeConfigurationWarning("Working directory not found: $workingDirectory")
         }
@@ -150,8 +151,10 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
             }
 
             override fun createConsole(executor: Executor): ConsoleView =
-                TerminalExecutionConsole(project, TERMINAL_COLUMNS, TERMINAL_ROWS, null)
-                    .withConvertLfToCrlfForNonPtyProcess(true)
+                TerminalExecutionConsoleBuilder(project)
+                    .initialTermSize(TermSize(TERMINAL_COLUMNS, TERMINAL_ROWS))
+                    .convertLfToCrlfForProcessWithoutPty(true)
+                    .build()
         }
     }
 
@@ -160,7 +163,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
 
         // taskfile
         val macroManager = PathMacroManager.getInstance(project)
-        val taskfilePath = macroManager.expandPath(filename)
+        val taskfilePath = macroManager.expandPath(filename) ?: filename
         if (taskfilePath.isNotEmpty()) {
             params.addAll("--taskfile", taskfilePath)
         }
@@ -193,7 +196,8 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         val workDirectory =
             when {
                 workingDirectory.isNotBlank() -> {
-                    val expanded = macroManager.expandPath(workingDirectory.trim())
+                    val expanded =
+                        macroManager.expandPath(workingDirectory.trim()) ?: workingDirectory.trim()
                     if (File(expanded).isAbsolute) expanded
                     else project.basePath?.let { File(it, expanded).path } ?: expanded
                 }

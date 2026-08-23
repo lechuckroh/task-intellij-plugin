@@ -1,5 +1,6 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask
 
 plugins {
     id 'com.ncorti.ktfmt.gradle' version '0.27.0'
@@ -10,8 +11,9 @@ plugins {
 group = 'lechuck'
 version = '1.8.0'
 
-// bytecode stays at 17: the plugin still supports 2024.1, whose runtime is JBR 17.
-// The toolchain also keeps JDK 21/25 APIs out of reach at compile time.
+// bytecode stays at 17: it runs unchanged on every JBR from 2026.2 (the minimum
+// supported version, see sinceBuild below) onward, and the toolchain keeps JDK 21/25
+// APIs out of reach at compile time.
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(17) }
 }
@@ -30,15 +32,10 @@ repositories {
 // - https://jb.gg/intellij-platform-versions
 dependencies {
     intellijPlatform {
-        // useInstaller defaults to true in IPGP 2.x, which pulls a large OS/arch-specific
-        // installer. false keeps the platform-independent Maven zip the 1.x plugin used.
-        create('IC', '2024.1') {
+        create(IntelliJPlatformType.IntellijIdea, '2026.2') {
             useInstaller = false
         }
         bundledPlugin 'org.jetbrains.plugins.yaml'
-        // IPGP 2.x no longer puts the platform test framework on the test classpath
-        // implicitly; BasePlatformTestCase comes from here.
-        // '.INSTANCE' is needed because TestFrameworkType.Platform is a Kotlin object.
         testFramework TestFrameworkType.Platform.INSTANCE
     }
     // gradle.properties sets kotlin.stdlib.default.dependency=false, so the stdlib
@@ -54,28 +51,26 @@ intellijPlatform {
     pluginConfiguration {
         version = project.version
         ideaVersion {
-            sinceBuild = '241'
-            // no upper bound, same as updateSinceUntilBuild=false produced before
+            sinceBuild = '262'
             untilBuild = provider { null }
         }
     }
-    // The plugin ships with no upper bound (sinceBuild=241, no untilBuild), so it can be
-    // installed into any newer IDE. verifyPlugin statically checks the actual supported range
-    // for removed/internal API usage that runIde's manual, eyes-on-one-version path cannot.
     pluginVerification {
-        // First pass is data-gathering for issue tracking, not a release gate: report every
-        // problem without failing the build. Tighten once known issues are triaged.
-        failureLevel = []
+        // Deprecated API usage is excluded: com.intellij.execution.util.ListTableWithButtons
+        // references the deprecated java.util.Observable itself, on every IDE version,
+        // and that usage lives in platform code we cannot change.
+        failureLevel = [
+            VerifyPluginTask.FailureLevel.COMPATIBILITY_PROBLEMS,
+            VerifyPluginTask.FailureLevel.SCHEDULED_FOR_REMOVAL_API_USAGES,
+            VerifyPluginTask.FailureLevel.EXPERIMENTAL_API_USAGES,
+            VerifyPluginTask.FailureLevel.INTERNAL_API_USAGES,
+            VerifyPluginTask.FailureLevel.NON_EXTENDABLE_API_USAGES,
+            VerifyPluginTask.FailureLevel.OVERRIDE_ONLY_API_USAGES,
+            VerifyPluginTask.FailureLevel.INVALID_PLUGIN,
+            VerifyPluginTask.FailureLevel.MISSING_DEPENDENCIES,
+        ]
         ides {
-            // one IC release per minor branch from sinceBuild with no upper limit -- currently
-            // 2024.1 through 2025.2 (241..252)
-            recommended()
-            // IC has not been published as a standalone release since 2025.3 (253);
-            // everything from there on ships only as the unified IntelliJ IDEA distribution.
-            // 'latest' resolves to the newest such release, so covering the unbounded range
-            // needs no version bump here as new majors ship.
-            // Kotlin extension-lambda parameters arrive in Groovy as a single closure
-            // argument, not as the closure delegate, hence 'it.types' rather than 'types'.
+            current()
             latest {
                 it.types.set([IntelliJPlatformType.IntellijIdea])
             }
@@ -86,12 +81,6 @@ intellijPlatform {
     }
 }
 
-// Manual testing against a current IDE without moving the compile target: the default
-// runIde still starts 2024.1 (the minimum supported version), runIdeLatest starts the
-// version from gradle.properties. 2025.3+ ships only the unified IntelliJ IDEA
-// distribution, so the type must be IntellijIdea -- create('IC', '2026.x') is rejected.
-// Unset fields inherit from the create(...) entry above, so this resolves the Maven zip
-// (useInstaller = false) and would follow suit if that entry ever changed.
 intellijPlatformTesting.runIde.register('runIdeLatest') {
     type = IntelliJPlatformType.IntellijIdea
     version = providers.gradleProperty('runIdeLatestVersion')
@@ -110,4 +99,29 @@ tasks.named('build') {
 
 ktfmt {
     kotlinLangStyle()
+}
+
+// TODO: remove once https://github.com/JetBrains/intellij-platform-gradle-plugin/issues/2070
+// is fixed and a release picks it up.
+//
+// The unified IntelliJ IDEA distribution bundles plugins like Vue.js whose lib/modules/*.jar
+// layout IPGP 2.18.1 doesn't parse correctly. BasePlatformTestCase loads every bundled plugin,
+// so a test that touches a shared extension point (here, LSP server registration) drags in
+// Vue.js and crashes on that bad classpath parse, even though the plugin itself is unrelated
+// to this project. Disabling it in the test sandbox's own config -- the same file-based
+// mechanism the platform already uses for user-disabled plugins -- sidesteps the parse instead
+// of loading and failing on it. Written after prepareTest builds the sandbox, since prepareTest
+// would otherwise overwrite it.
+tasks.register("disableBrokenBundledTestPlugins") {
+    def prepareTest = tasks.named("prepareTest")
+    dependsOn(prepareTest)
+    def configDir = prepareTest.flatMap { it.sandboxConfigDirectory }
+    outputs.dir(configDir)
+    doLast {
+        new File(configDir.get().asFile, "disabled_plugins.txt").text = "org.jetbrains.plugins.vue\n"
+    }
+}
+
+tasks.named("test") {
+    dependsOn("disableBrokenBundledTestPlugins")
 }

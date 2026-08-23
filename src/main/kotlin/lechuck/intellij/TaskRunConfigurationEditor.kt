@@ -49,7 +49,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
         TextFieldWithAutoCompletion.StringsCompletionProvider(emptyList(), TaskPluginIcons.Task)
     private val taskField = TextFieldWithAutoCompletion(project, taskCompletionProvider, true, "")
     private val argumentsField = ExpandableTextField()
-    private val envVarsComponent = EnvironmentVariablesComponent()
+    private val envVarsComponent = EnvironmentVariablesComponent(project)
     private val varsComponent = VariablesComponent()
     private val workingDirectoryField = TextFieldWithBrowseButton()
     private val ptyCheckBox = JBCheckBox("Run in terminal (PTY)")
@@ -116,7 +116,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
         if (file != null) {
             ApplicationManager.getApplication().executeOnPooledThread {
                 val psiFile =
-                    ReadAction.compute<PsiFile?, RuntimeException> {
+                    ReadAction.computeBlocking<PsiFile?, RuntimeException> {
                         PsiManager.getInstance(project).findFile(file)
                     }
                 val results = psiFile?.let { findTasks(it) } ?: emptyList()
@@ -154,7 +154,9 @@ class TaskRunConfigurationEditor(private val project: Project) :
      * the caller ends up with an empty list.
      */
     internal fun resolveTaskfile(filename: String): VirtualFile? {
-        val expandedPath = PathMacroManager.getInstance(project).expandPath(filename)
+        // expandPath only returns null for a null input; filename is never null, but the
+        // platform still types the result nullable, so fall back to the unexpanded path.
+        val expandedPath = PathMacroManager.getInstance(project).expandPath(filename) ?: filename
         return LocalFileSystem.getInstance().findFileByPath(expandedPath)
     }
 
@@ -167,7 +169,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
      */
     internal fun findTasks(file: PsiFile): Collection<String> {
         return try {
-            val text = ReadAction.compute<String, RuntimeException> { file.text }
+            val text = ReadAction.computeBlocking<String, RuntimeException> { file.text }
             val taskfile: Taskfile = mapper.readValue(text, Taskfile::class.java)
             taskfile.tasks?.keys ?: emptyList()
         } catch (e: Exception) {
