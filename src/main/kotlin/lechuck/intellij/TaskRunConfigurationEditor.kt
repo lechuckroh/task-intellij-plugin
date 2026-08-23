@@ -1,15 +1,10 @@
 package lechuck.intellij
 
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.intellij.execution.configuration.EnvironmentVariablesComponent
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.PathMacros
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.PathMacroManager
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
@@ -20,8 +15,6 @@ import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiManager
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.TextFieldWithAutoCompletion
 import com.intellij.ui.components.JBCheckBox
@@ -34,14 +27,11 @@ import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 import javax.swing.event.DocumentEvent
+import lechuck.intellij.discovery.TaskDiscovery
 import lechuck.intellij.vars.VariablesComponent
 
 class TaskRunConfigurationEditor(private val project: Project) :
     SettingsEditor<TaskRunConfiguration>() {
-
-    private companion object {
-        private val LOG = Logger.getInstance(TaskRunConfigurationEditor::class.java)
-    }
 
     private val taskExecutableField = TextFieldWithBrowseButton()
     private val filenameField = TextFieldWithBrowseButton()
@@ -53,9 +43,6 @@ class TaskRunConfigurationEditor(private val project: Project) :
     private val varsComponent = VariablesComponent()
     private val workingDirectoryField = TextFieldWithBrowseButton()
     private val ptyCheckBox = JBCheckBox("Run in terminal (PTY)")
-    private val mapper =
-        ObjectMapper(YAMLFactory())
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     private val completionRequestId = AtomicLong(0)
 
     private val panel: JPanel by lazy {
@@ -94,6 +81,14 @@ class TaskRunConfigurationEditor(private val project: Project) :
             }
         )
 
+        taskExecutableField.textField.document.addDocumentListener(
+            object : DocumentAdapter() {
+                override fun textChanged(event: DocumentEvent) {
+                    updateTargetCompletion(filenameField.text)
+                }
+            }
+        )
+
         workingDirectoryField.addBrowseFolderListener(
             TextBrowseFolderListener(
                 FileChooserDescriptorFactory.createSingleFolderDescriptor(),
@@ -114,12 +109,9 @@ class TaskRunConfigurationEditor(private val project: Project) :
         val requestId = completionRequestId.incrementAndGet()
         val file = resolveTaskfile(filename)
         if (file != null) {
+            val taskExecutable = taskExecutableField.text
             ApplicationManager.getApplication().executeOnPooledThread {
-                val psiFile =
-                    ReadAction.computeBlocking<PsiFile?, RuntimeException> {
-                        PsiManager.getInstance(project).findFile(file)
-                    }
-                val results = psiFile?.let { findTasks(it) } ?: emptyList()
+                val results = findTasks(file, taskExecutable)
 
                 SwingUtilities.invokeLater {
                     if (requestId == completionRequestId.get()) {
@@ -128,7 +120,7 @@ class TaskRunConfigurationEditor(private val project: Project) :
                 }
             }
         } else {
-            // no id check here: both callers of this method run on the EDT, so claiming the id
+            // no id check here: every caller of this method runs on the EDT, so claiming the id
             // above has already stopped every lookup still in flight from publishing
             taskCompletionProvider.setItems(emptyList())
         }
@@ -150,8 +142,8 @@ class TaskRunConfigurationEditor(private val project: Project) :
      * it.
      *
      * An empty [filename] expands to itself and resolves to that same process working directory
-     * rather than to null, as it did before. It stays harmless: a directory has no [PsiFile], so
-     * the caller ends up with an empty list.
+     * rather than to null, as it did before. It stays harmless: [TaskDiscovery] finds no tasks in a
+     * directory, so the caller ends up with an empty list.
      */
     internal fun resolveTaskfile(filename: String): VirtualFile? {
         // expandPath only returns null for a null input; filename is never null, but the
@@ -161,22 +153,18 @@ class TaskRunConfigurationEditor(private val project: Project) :
     }
 
     /**
-     * Parses the task names out of [file].
+     * Lists the names of the tasks [file] can run, by way of [TaskDiscovery].
      *
-     * The text comes from the PSI rather than from the file's bytes, so a task typed into the
-     * editor but not saved yet still shows up in the completion list. The PSI follows the document
-     * as of the last commit, which the platform performs between keystrokes.
+     * Only reads [file] from disk when the `task` CLI is available, since that's the only way to
+     * also resolve `includes:` the way running the task would; an edit made in the editor but not
+     * saved yet shows up here only once it's saved, in that case. Without `task`, discovery falls
+     * back to the editor's own unsaved text instead.
+     *
+     * [taskExecutable] is the editor's own "Task executable" field, so completion resolves `task`
+     * the same way running this configuration would.
      */
-    internal fun findTasks(file: PsiFile): Collection<String> {
-        return try {
-            val text = ReadAction.computeBlocking<String, RuntimeException> { file.text }
-            val taskfile: Taskfile = mapper.readValue(text, Taskfile::class.java)
-            taskfile.tasks?.keys ?: emptyList()
-        } catch (e: Exception) {
-            LOG.warn("Failed to parse Taskfile: ${file.name}", e)
-            emptyList()
-        }
-    }
+    internal fun findTasks(file: VirtualFile, taskExecutable: String = ""): Collection<String> =
+        TaskDiscovery.discover(project, file, taskExecutable).map { it.name }
 
     override fun createEditor() = panel
 

@@ -3,10 +3,9 @@ package lechuck.intellij
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.psi.PsiDocumentManager
-import com.intellij.psi.PsiManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
@@ -31,18 +30,17 @@ class TaskRunConfigurationEditorTest : BasePlatformTestCase() {
     }
 
     /**
-     * Writes a real Taskfile at the root of the light project, which is what `$PROJECT_DIR$`
-     * expands to, and makes it visible to the VFS. It has to be a real file on a real filesystem:
-     * the code under test looks it up through [LocalFileSystem].
+     * Writes a real Taskfile at [relativePath] under the light project's root, which is what
+     * `$PROJECT_DIR$` expands to, and makes it visible to the VFS. It has to be a real file on a
+     * real filesystem: the code under test looks it up through [LocalFileSystem].
      */
-    private fun writeTaskfile(name: String, text: String): File {
-        val root = File(project.basePath!!)
-        root.mkdirs()
-        val file = File(root, name)
+    private fun writeTaskfile(relativePath: String, text: String): File {
+        val file = File(project.basePath!!, relativePath)
+        file.parentFile.mkdirs()
         file.writeText(text)
         createdFiles.add(file)
         assertNotNull(
-            "the freshly written $name must be visible to the VFS",
+            "the freshly written $relativePath must be visible to the VFS",
             LocalFileSystem.getInstance().refreshAndFindFileByPath(file.path),
         )
         return file
@@ -55,7 +53,7 @@ class TaskRunConfigurationEditorTest : BasePlatformTestCase() {
      */
     @Test
     fun testPathMacroIsExpandedWhenLocatingTheTaskfile() {
-        val file = writeTaskfile("Taskfile.yml", "tasks:\n  build: echo build\n")
+        val file = writeTaskfile("Taskfile.yml", "version: '3'\ntasks:\n  build: echo build\n")
 
         val byAbsolutePath = editor.resolveTaskfile(file.path)
         val byMacro = editor.resolveTaskfile("\$PROJECT_DIR\$/Taskfile.yml")
@@ -73,29 +71,72 @@ class TaskRunConfigurationEditorTest : BasePlatformTestCase() {
     }
 
     /**
-     * A task typed into the editor but not saved yet has to appear in the completion list. Reading
-     * the file's bytes would return the version on disk and miss it.
+     * findTasks discovers through [lechuck.intellij.discovery.TaskDiscovery], which reads the
+     * Taskfile from disk when the `task` CLI is available -- the only way to also resolve
+     * `includes:` the way running the task would -- so an edit made in the editor but not saved yet
+     * does not show up in that case. Skipped where `task` isn't installed, since
+     * [lechuck.intellij.discovery.TaskYamlDiscoveryPsiTest] covers the PSI fallback that applies
+     * there instead, and this assertion would not hold for it.
      */
     @Test
-    fun testTasksComeFromTheEditorTextRatherThanDisk() {
-        val file = writeTaskfile("Taskfile.yml", "tasks:\n  saved: echo saved\n")
+    fun testTasksComeFromDiskRatherThanTheEditorTextWhenCliIsAvailable() {
+        assumeTrue("requires the task CLI to be installed", isTaskAvailable())
+        val file = writeTaskfile("Taskfile.yml", "version: '3'\ntasks:\n  saved: echo saved\n")
         val virtualFile = editor.resolveTaskfile(file.path)!!
-        // the PSI exists before the edit, as it does while the file is open in the IDE
-        val psiFile = PsiManager.getInstance(project).findFile(virtualFile)!!
 
         val document = FileDocumentManager.getInstance().getDocument(virtualFile)!!
         WriteCommandAction.runWriteCommandAction(project) {
-            document.setText("tasks:\n  saved: echo saved\n  unsaved: echo unsaved\n")
+            document.setText("version: '3'\ntasks:\n  saved: echo saved\n  unsaved: echo unsaved\n")
         }
-        // findTasks reads the PSI, which follows the document only as of the last commit. The IDE
-        // commits between keystrokes on its own; a test has to ask, and the assertion below rests
-        // on it having happened.
-        PsiDocumentManager.getInstance(project).commitAllDocuments()
 
         assertTrue(
             "precondition: the edit must not have reached disk",
             FileDocumentManager.getInstance().isFileModified(virtualFile),
         )
-        assertEquals(listOf("saved", "unsaved"), editor.findTasks(psiFile).toList())
+        assertEquals(listOf("saved"), editor.findTasks(virtualFile).toList())
     }
+
+    /**
+     * `findTasks`'s `taskExecutable` has to actually reach
+     * [lechuck.intellij.discovery.TaskDiscovery] and from there
+     * [lechuck.intellij.discovery.TaskCliDiscovery] -- not be silently dropped in favor of the
+     * ambient PATH's `task` -- so this points it at a bogus path while a real `task` is still on
+     * PATH (guaranteed by [isTaskAvailable]) and expects the YAML fallback's result (every task,
+     * since that fallback doesn't exclude `internal:` ones) rather than the CLI's.
+     *
+     * Written under a test-specific subdirectory, not the shared light-project root other tests in
+     * this class use, since [BasePlatformTestCase] reuses one light project (and its Document
+     * cache) across every method -- a shared path would risk reading another test's stale cached
+     * text.
+     */
+    @Test
+    fun testFindTasksUsesTheGivenTaskExecutableRatherThanTheAmbientPathsTask() {
+        assumeTrue("requires the task CLI to be installed", isTaskAvailable())
+        val file =
+            writeTaskfile(
+                "${getName()}/Taskfile.yml",
+                """
+                version: '3'
+                tasks:
+                  build: echo build
+                  hidden:
+                    internal: true
+                    cmds:
+                      - echo hidden
+                """
+                    .trimIndent(),
+            )
+        val virtualFile = editor.resolveTaskfile(file.path)!!
+
+        val tasks = editor.findTasks(virtualFile, taskExecutable = "/no/such/task-binary")
+
+        assertEquals(setOf("build", "hidden"), tasks.toSet())
+    }
+
+    private fun isTaskAvailable(): Boolean =
+        try {
+            ProcessBuilder("task", "--version").start().waitFor() == 0
+        } catch (e: Exception) {
+            false
+        }
 }

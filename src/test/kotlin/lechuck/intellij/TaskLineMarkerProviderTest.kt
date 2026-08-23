@@ -163,6 +163,38 @@ class TaskLineMarkerProviderTest : BasePlatformTestCase() {
         assertEquals("/tmp/Taskfile.yml", runConfig.filename)
     }
 
+    /**
+     * A permanent configuration (the old behavior) would pile up in the Run/Debug Configurations
+     * list forever, one per distinct task ever run from the gutter. Temporary configurations get
+     * the platform's own LRU eviction instead, unless the user explicitly saves one.
+     */
+    @Test
+    fun testConfigurationIsTemporaryRatherThanPermanent() {
+        val settings =
+            TaskLineMarkerProvider.prepareConfiguration(project, "temp-check", "/tmp/Taskfile.yml")
+
+        assertTrue("Should be a temporary configuration", settings!!.isTemporary)
+    }
+
+    /**
+     * Saving a configuration ("Save 'Task: ...' Configuration" in the run dropdown) makes it
+     * permanent. Running the same task from the gutter again must not undo that -- it would
+     * silently demote a configuration the user just chose to keep back to LRU-evictable.
+     */
+    @Test
+    fun testSavedConfigurationStaysPermanentAcrossReruns() {
+        val runManager = RunManagerImpl.getInstanceImpl(project)
+        val first =
+            TaskLineMarkerProvider.prepareConfiguration(project, "saved", "/tmp/Taskfile.yml")
+        runManager.makeStable(first!!)
+        assertFalse("Precondition: makeStable should clear isTemporary", first.isTemporary)
+
+        val second =
+            TaskLineMarkerProvider.prepareConfiguration(project, "saved", "/tmp/Taskfile.yml")
+
+        assertFalse("Re-running a saved configuration must not re-demote it", second!!.isTemporary)
+    }
+
     @Test
     fun testGutterRunReusesExistingTaskConfiguration() {
         val first =

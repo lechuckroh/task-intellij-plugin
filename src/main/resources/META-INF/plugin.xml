@@ -29,8 +29,9 @@
     <change-notes><![CDATA[
     v2.0.0
     <ul>
-        <li>Change minimum requirements: 2026.2</li>
-        <li>Upgrade IPGP to v2.x</li>
+        <li>Set minimum requirements: 2026.2</li>
+        <li>Upgraded IPGP to v2.x</li>
+        <li>Added Task Explorer</li>
     </ul>
     ]]></change-notes>
 
@@ -44,6 +45,8 @@
         <runLineMarkerContributor
                 language="yaml"
                 implementationClass="lechuck.intellij.TaskLineMarkerProvider"/>
+        <toolWindow id="Task Explorer" anchor="left" icon="/icons/taskExplorer.svg"
+                    factoryClass="lechuck.intellij.explorer.TaskExplorerToolWindowFactory"/>
     </extensions>
 
     <actions>

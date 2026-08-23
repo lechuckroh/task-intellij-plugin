@@ -65,11 +65,42 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
             runConfig.task = taskName
             runConfig.filename = taskfilePath
 
+            // addConfiguration would add every distinct task ever run from the gutter to the
+            // Run/Debug Configurations list permanently. setTemporaryConfiguration registers it
+            // too, but as one the platform's own LRU eviction can drop once the user stops running
+            // it -- the same treatment a test method's gutter icon gets -- unless the user
+            // explicitly saves it. Only for a brand-new configuration, matching the platform's own
+            // RunContextAction: re-running an existing one must not re-demote a configuration the
+            // user has since saved (setTemporaryConfiguration would unconditionally mark it
+            // temporary again, silently undoing that).
             if (existingConfiguration == null) {
-                runManager.addConfiguration(configuration)
+                runManager.setTemporaryConfiguration(configuration)
             }
 
             return configuration
+        }
+
+        /**
+         * Prepares (or reuses) [taskName]'s run configuration, as [prepareConfiguration] does, and
+         * runs it with the default executor. Shared by the gutter's [TaskRunAction] and the Task
+         * Explorer tool window, so there is exactly one "run a task" path rather than one per
+         * caller.
+         */
+        internal fun runTask(project: Project, taskName: String, taskfilePath: String) {
+            val configuration = prepareConfiguration(project, taskName, taskfilePath) ?: return
+
+            // must run after the configuration is registered, and on the EDT
+            RunManager.getInstance(project).selectedConfiguration = configuration
+
+            try {
+                val executor =
+                    ExecutorRegistry.getInstance().getExecutorById(DefaultRunExecutor.EXECUTOR_ID)
+                if (executor != null) {
+                    ExecutionEnvironmentBuilder.create(executor, configuration).buildAndExecute()
+                }
+            } catch (ex: ExecutionException) {
+                LOG.warn("Failed to execute task: $taskName", ex)
+            }
         }
     }
 
@@ -115,20 +146,7 @@ class TaskLineMarkerProvider : RunLineMarkerContributor() {
         private val taskfilePath: String,
     ) : AnAction() {
         override fun actionPerformed(e: AnActionEvent) {
-            val configuration = prepareConfiguration(project, taskName, taskfilePath) ?: return
-
-            // must run after the configuration is registered, and on the EDT
-            RunManager.getInstance(project).selectedConfiguration = configuration
-
-            try {
-                val executor =
-                    ExecutorRegistry.getInstance().getExecutorById(DefaultRunExecutor.EXECUTOR_ID)
-                if (executor != null) {
-                    ExecutionEnvironmentBuilder.create(executor, configuration).buildAndExecute()
-                }
-            } catch (ex: ExecutionException) {
-                LOG.warn("Failed to execute task: $taskName", ex)
-            }
+            runTask(project, taskName, taskfilePath)
         }
     }
 }
