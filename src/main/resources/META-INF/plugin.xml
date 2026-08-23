@@ -27,51 +27,10 @@
     ]]></description>
 
     <change-notes><![CDATA[
-    v1.8.0
+    v2.0.0
     <ul>
-        <li>add option: 'Run in terminal (PTY)' in run configuration editor</li>
-        <li>show gutter run marker for short-form tasks</li>
-        <li>fix background process not terminating when PTY is disabled</li>
-    </ul>
-    v1.7.1
-    <ul>
-        <li>change minimum requirements: 2024.1</li>
-        <li>fix deprecated API usages</li>
-    </ul>
-    v1.6.0
-    <ul>
-        <li>add shortcut to create a new configuration in Taskfile.yml file</li>
-    </ul>
-    v1.5.0
-    <ul>
-        <li>Change minimum requirements: JRE 17 and 2023.1</li>
-        <li>fix jackson-dateformat-yaml not found error</li>
-    </ul>
-    v1.4.0
-    <ul>
-        <li>add variables editor dialog</li>
-    </ul>
-    v1.3.1
-    <ul>
-        <li>add variables</li>
-    </ul>
-    v1.3.0
-    <ul>
-        <li>add working directory</li>
-        <li>add environment variables</li>
-    </ul>
-    v1.2.0
-    <ul>
-      <li>Support for 2021.3 Jetbrains releases</li>
-    </ul>
-    v1.1.0
-    <ul>
-      <li>add task executable path</li>
-      <li>add CLI arguments</li>
-    </ul>
-    v1.0.2
-    <ul>
-      <li>task autoCompletion</li>
+        <li>Change minimum requirements: 2026.2</li>
+        <li>Upgrade IPGP to v2.x</li>
     </ul>
     ]]></change-notes>
 

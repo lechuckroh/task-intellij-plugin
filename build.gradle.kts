@@ -1,5 +1,6 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask
 import org.jetbrains.intellij.platform.gradle.tasks.PrepareTestTask
 import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask
 
@@ -11,7 +12,7 @@ plugins {
 
 group = "lechuck"
 
-version = "1.8.0"
+version = "2.0.0-beta"
 
 // bytecode stays at 17: it runs unchanged on every JBR from 2026.2 (the minimum
 // supported version, see sinceBuild below) onward, and the toolchain keeps JDK 21/25
@@ -115,3 +116,44 @@ val disableBrokenBundledTestPlugins =
     }
 
 tasks.named("test") { dependsOn(disableBrokenBundledTestPlugins) }
+
+// Fixes applied to the interactive-run sandboxes (runIde, runIdeLatest) only -- the test
+// sandbox above already has its own narrower fix for the one bug it actually hits.
+//
+// - com.intellij.platform.daemon (the "JetBrains OS Integration" plugin) fails a discovery
+//   probe against this setup and logs a stack trace on every launch; JetBrains's own guidance
+//   for that failure is to disable the plugin, the same way #2070 is worked around above.
+// - org.jetbrains.plugins.vue hits that same #2070 lib/modules layout bug, just not (yet)
+//   through a code path manual testing happens to exercise.
+// - The native file watcher (fsnotifier) ships without its executable bit when the platform
+//   downloads as a plain zip (useInstaller = false above) rather than a native installer, so
+//   IntelliJ falls back to slower filesystem polling and warns about it on every launch.
+fun fixRunSandbox(prepareSandboxTaskName: String, taskName: String) =
+    tasks.register(taskName) {
+        val prepareSandbox = tasks.named<PrepareSandboxTask>(prepareSandboxTaskName)
+        dependsOn(prepareSandbox)
+        val configDir = prepareSandbox.flatMap { it.sandboxConfigDirectory }
+        val platformPath = prepareSandbox.map { it.platformPath }
+        outputs.dir(configDir)
+        doLast {
+            configDir
+                .get()
+                .asFile
+                .resolve("disabled_plugins.txt")
+                .writeText("com.intellij.platform.daemon\norg.jetbrains.plugins.vue\n")
+            platformPath
+                .get()
+                .resolve("bin")
+                .toFile()
+                .walkTopDown()
+                .filter { it.name == "fsnotifier" || it.name == "fsnotifier.exe" }
+                .forEach { it.setExecutable(true) }
+        }
+    }
+
+val fixRunIdeSandbox = fixRunSandbox("prepareSandbox", "fixRunIdeSandbox")
+val fixRunIdeLatestSandbox = fixRunSandbox("prepareSandbox_runIdeLatest", "fixRunIdeLatestSandbox")
+
+tasks.named("runIde") { dependsOn(fixRunIdeSandbox) }
+
+tasks.named("runIdeLatest") { dependsOn(fixRunIdeLatestSandbox) }
