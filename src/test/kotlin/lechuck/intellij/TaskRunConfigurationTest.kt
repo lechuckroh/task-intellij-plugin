@@ -131,6 +131,83 @@ class TaskRunConfigurationTest : BasePlatformTestCase() {
         )
     }
 
+    /**
+     * Unlike a taskfile-derived directory (discarded when relative, see
+     * testRelativeTaskfileFallsBackToProjectRoot), an explicit workingDirectory has no
+     * double-application risk, so a relative value is joined against the project root rather than
+     * being resolved against the IDE's own working directory.
+     */
+    @Test
+    fun testRelativeWorkingDirectoryIsJoinedWithProjectRoot() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        cfg.workingDirectory = "sub"
+
+        assertEquals(
+            File(project.basePath, "sub").path,
+            cfg.buildCommandLine().workDirectory?.path,
+        )
+    }
+
+    @Test
+    fun testDotWorkingDirectoryResolvesToProjectRoot() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        cfg.workingDirectory = "."
+
+        assertEquals(
+            File(project.basePath, ".").path,
+            cfg.buildCommandLine().workDirectory?.path,
+        )
+    }
+
+    /**
+     * A whitespace-only value is treated the same as unset, per StringUtil.isEmptyOrSpaces's
+     * convention.
+     */
+    @Test
+    fun testBlankWorkingDirectoryFallsBackToProjectRoot() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        cfg.workingDirectory = "   "
+
+        assertEquals(project.basePath, cfg.buildCommandLine().workDirectory?.path)
+    }
+
+    /** A relative value with leading/trailing whitespace is trimmed before joining. */
+    @Test
+    fun testWorkingDirectoryIsTrimmedBeforeJoining() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        cfg.workingDirectory = "  sub  "
+
+        assertEquals(
+            File(project.basePath, "sub").path,
+            cfg.buildCommandLine().workDirectory?.path,
+        )
+    }
+
+    /** Regression: an absolute workingDirectory must not be joined onto the project root. */
+    @Test
+    fun testAbsoluteWorkingDirectoryIsUnchanged() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        val absolute = File(project.basePath, "elsewhere").path
+        cfg.workingDirectory = absolute
+
+        assertEquals(absolute, cfg.buildCommandLine().workDirectory?.path)
+    }
+
+    /** Regression: the macro must still be expanded, and the expanded path is already absolute. */
+    @Test
+    fun testMacroWorkingDirectoryIsExpanded() {
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        cfg.workingDirectory = "\$PROJECT_DIR\$"
+
+        assertEquals(project.basePath, cfg.buildCommandLine().workDirectory?.path)
+    }
+
     @Test
     fun testCheckConfigurationRequiresTask() {
         val cfg = createConfiguration()

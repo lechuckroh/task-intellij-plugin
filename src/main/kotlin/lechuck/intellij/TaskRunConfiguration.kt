@@ -180,13 +180,23 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         }
 
         // working directory. Left unset, task inherits the IDE's own and searches upwards from
-        // there for an unrelated Taskfile. A directory derived from the taskfile is therefore
-        // only usable when absolute: task resolves the taskfile path against this directory, so
-        // a relative segment would apply twice. An explicitly set workingDirectory has no such
-        // interaction and is passed through as written.
+        // there for an unrelated Taskfile. A directory derived from the taskfile is only usable
+        // when absolute: task resolves the taskfile path against this directory, so a relative
+        // segment would apply twice (it is also passed as the --taskfile argument above).
+        //
+        // An explicit workingDirectory has no such interaction, so a relative value is joined
+        // against the project root instead of being discarded -- the opposite handling from the
+        // taskfile-derived directory above, and the same join ProgramParametersConfigurator uses
+        // for a run configuration's own working directory field. A blank value (including
+        // whitespace-only) is treated the same as unset, following the same convention as the
+        // platform's StringUtil.isEmptyOrSpaces.
         val workDirectory =
             when {
-                workingDirectory.isNotEmpty() -> macroManager.expandPath(workingDirectory)
+                workingDirectory.isNotBlank() -> {
+                    val expanded = macroManager.expandPath(workingDirectory.trim())
+                    if (File(expanded).isAbsolute) expanded
+                    else project.basePath?.let { File(it, expanded).path } ?: expanded
+                }
                 else -> File(taskfilePath).parent?.takeIf { File(it).isAbsolute }
             } ?: project.basePath
 
