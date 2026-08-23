@@ -7,6 +7,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
 import lechuck.intellij.TaskRunConfiguration
 import lechuck.intellij.discovery.DiscoveredTask
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
@@ -41,8 +42,18 @@ class TaskNodeTest : BasePlatformTestCase() {
         }
     }
 
+    /**
+     * [run] doesn't just prepare a configuration --
+     * [lechuck.intellij.TaskLineMarkerProvider.runTask] actually executes it, which needs a real
+     * `task` binary to launch cleanly. Without one, the platform's own execution machinery logs an
+     * error before our code ever gets a chance to catch the resulting `ExecutionException`, which
+     * fails the test regardless -- unlike every CLI call this suite makes only to *discover* tasks
+     * (see [TaskCliDiscovery]'s own deliberately quiet fallback), which doesn't hit that path at
+     * all.
+     */
     @Test
     fun testRunPreparesAndSelectsTheTasksOwnConfiguration() {
+        assumeTrue("requires the task CLI to be installed", isTaskAvailable())
         val file = File(testDir, "Taskfile.yml")
         file.writeText("version: '3'\ntasks:\n  build: echo build\n")
         val virtualFile = LocalFileSystem.getInstance().refreshAndFindFileByPath(file.path)!!
@@ -110,4 +121,11 @@ class TaskNodeTest : BasePlatformTestCase() {
 
         assertTrue(node.canNavigate())
     }
+
+    private fun isTaskAvailable(): Boolean =
+        try {
+            ProcessBuilder("task", "--version").start().waitFor() == 0
+        } catch (e: Exception) {
+            false
+        }
 }
