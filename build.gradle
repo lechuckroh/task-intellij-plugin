@@ -59,6 +59,28 @@ intellijPlatform {
             untilBuild = provider { null }
         }
     }
+    // The plugin ships with no upper bound (sinceBuild=241, no untilBuild), so it can be
+    // installed into any newer IDE. verifyPlugin statically checks the actual supported range
+    // for removed/internal API usage that runIde's manual, eyes-on-one-version path cannot.
+    pluginVerification {
+        // First pass is data-gathering for issue tracking, not a release gate: report every
+        // problem without failing the build. Tighten once known issues are triaged.
+        failureLevel = []
+        ides {
+            // one IC release per minor branch from sinceBuild with no upper limit -- currently
+            // 2024.1 through 2025.2 (241..252)
+            recommended()
+            // IC has not been published as a standalone release since 2025.3 (253);
+            // everything from there on ships only as the unified IntelliJ IDEA distribution.
+            // 'latest' resolves to the newest such release, so covering the unbounded range
+            // needs no version bump here as new majors ship.
+            // Kotlin extension-lambda parameters arrive in Groovy as a single closure
+            // argument, not as the closure delegate, hence 'it.types' rather than 'types'.
+            latest {
+                it.types.set([IntelliJPlatformType.IntellijIdea])
+            }
+        }
+    }
     publishing {
         token = System.getenv('ORG_GRADLE_PROJECT_intellijPublishToken')
     }
