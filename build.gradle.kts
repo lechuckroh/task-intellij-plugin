@@ -37,8 +37,8 @@ dependencies {
     // gradle.properties sets kotlin.stdlib.default.dependency=false, so the stdlib
     // has to be requested explicitly to keep it bundled in the plugin distribution.
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
-    implementation("com.fasterxml.jackson.core:jackson-core:2.18.3")
-    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.3")
+    implementation("com.fasterxml.jackson.core:jackson-core:2.22.2")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.22.2")
     testImplementation("junit:junit:4.13.2")
 }
 
@@ -83,7 +83,7 @@ intellijPlatformTesting.runIde.register("runIdeLatest") {
 
 tasks.jar { from("LICENSE") }
 
-// IPGP 2.x does not wire buildPlugin into assemble/build the way the 1.x plugin did,
+// IPGP 2.x does not wire buildPlugin into assemble/build the way the 1.x plugin did.
 tasks.named("build") { dependsOn("buildPlugin") }
 
 ktfmt { kotlinLangStyle() }
