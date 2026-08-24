@@ -102,19 +102,11 @@ internal class TaskExplorerPanel(private val project: Project) :
                 VirtualFileManager.VFS_CHANGES,
                 object : BulkFileListener {
                     override fun after(events: List<VFileEvent>) {
+                        // Only the tree's *structure* (which Taskfiles exist) is this listener's
+                        // business. Evicting the stale per-file discovery results behind those rows
+                        // is TaskDiscoveryCache's own VFS listener's job, so it happens for every
+                        // consumer of the cache rather than only while this panel exists.
                         if (events.any(::mayAffectTaskfiles)) {
-                            // A stale cached discovery result must not survive whatever just
-                            // happened to this file -- invalidateAsync() below only rebuilds the
-                            // tree's *structure* (which Taskfiles exist), not TaskDiscoveryCache's
-                            // per-file results, and an edited Taskfile keeps the same path across
-                            // the event that reports it changing.
-                            val cache = TaskDiscoveryCache.getInstance(project)
-                            events.forEach { event ->
-                                cache.invalidate(event.path)
-                                if (event is VFilePropertyChangeEvent && event.isRename) {
-                                    cache.invalidate(event.oldPath)
-                                }
-                            }
                             scheduleRefresh()
                         }
                     }

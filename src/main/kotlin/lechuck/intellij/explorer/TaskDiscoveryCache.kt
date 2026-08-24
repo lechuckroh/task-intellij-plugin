@@ -6,6 +6,10 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileManager
+import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileEvent
+import com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent
 import com.intellij.util.concurrency.AppExecutorUtil
 import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
@@ -24,15 +28,50 @@ import lechuck.intellij.discovery.TaskDiscovery
  * `task` subprocess calls one after another on that one thread -- both to render the initial list
  * of labels and to answer any single expand request queued behind them.
  *
- * A cache entry is never invalidated by content changes on its own; call [invalidate] when one is
- * known to be stale (see [TaskExplorerPanel]'s VFS listener, the only place a Taskfile's on-disk
- * content is known to have changed).
+ * Entries are invalidated by this service's own VFS listener (below), so every consumer gets the
+ * same freshness guarantee; [invalidate] is also callable directly for a caller that knows an entry
+ * is stale for some other reason.
  */
 @Service(Service.Level.PROJECT)
 internal class TaskDiscoveryCache(private val project: Project) : Disposable {
     private val results = ConcurrentHashMap<String, CompletableFuture<DiscoveryResult>>()
     private val executor =
         AppExecutorUtil.createBoundedApplicationPoolExecutor("Task Explorer Discovery", CONCURRENCY)
+
+    init {
+        // A stale result must not survive an edit, delete, or rename of the Taskfile it came from
+        // (an edited Taskfile keeps the same path across the event that reports it changing, so
+        // nothing else would evict it).
+        //
+        // Owned by the cache rather than by a consumer: this used to live in TaskExplorerPanel's
+        // own VFS listener, which only exists once that panel has been constructed -- i.e. once
+        // the tool window has actually been opened. Every other consumer (the Run Anything
+        // provider) was left reading results that could never go stale-checked in a session where
+        // the user never opened the tool window.
+        //
+        // Filtered by filename for the same reason the panel filters its own refresh: a project
+        // has plenty of unrelated file traffic, and only one of the 8 recognized Taskfile names
+        // can be a key here in the first place.
+        project.messageBus
+            .connect(this)
+            .subscribe(
+                VirtualFileManager.VFS_CHANGES,
+                object : BulkFileListener {
+                    override fun after(events: List<VFileEvent>) {
+                        events.forEach { event ->
+                            if (
+                                TaskfileFinder.isRecognizedName(event.path.substringAfterLast('/'))
+                            ) {
+                                invalidate(event.path)
+                            }
+                            if (event is VFilePropertyChangeEvent && event.isRename) {
+                                invalidate(event.oldPath)
+                            }
+                        }
+                    }
+                },
+            )
+    }
 
     /** The cached result for [file], or null if discovery for it hasn't finished yet. */
     fun cachedResult(file: VirtualFile): DiscoveryResult? {

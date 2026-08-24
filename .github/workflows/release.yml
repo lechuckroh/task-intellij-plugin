@@ -9,10 +9,48 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
+      # Tags and history are what the changelog step below reads; the default
+      # fetch-depth of 1 leaves it with neither.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set version
         run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      # Lists what changed since the previous tag, so the release body says more
+      # than its own version number. Built from commit subjects rather than from
+      # GitHub's own generate_release_notes, which lists merged PRs -- and almost
+      # everything here lands as a direct commit instead.
+      - name: Build changelog
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # No previous tag on a first release: || true keeps that from failing the run.
+          PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          # Version-bump commits carry no news for a reader of the release notes.
+          # Matched narrowly on purpose: an unanchored 'bump' would also drop
+          # dependency bumps like "Bump Jackson to 2.22.2", which are real changes.
+          LOG_OPTS=(
+            --no-merges
+            --pretty=format:'* %s (%h)'
+            --invert-grep --regexp-ignore-case --grep='^bump v[0-9]'
+          )
+          {
+            # Heredoc delimiter: a plain key=value cannot carry a multi-line value.
+            echo "changelog<<CHANGELOG_EOF"
+            if [ -n "$PREV" ]; then
+              echo "## Changes since ${PREV}"
+              echo
+              git log "${LOG_OPTS[@]}" "${PREV}..${TAG}"
+            else
+              echo "## Changes"
+              echo
+              git log "${LOG_OPTS[@]}" "${TAG}"
+            fi
+            echo
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Setup JDK
         uses: actions/setup-java@v4
@@ -43,6 +81,8 @@ jobs:
           body: |
             Release ${{ env.RELEASE_VERSION }}
             Install : Preferences -> Plugin -> Install Plugin from Disk
+
+            ${{ steps.changelog.outputs.changelog }}
 
       - name: Publish plugin
         run: ./gradlew publishPlugin

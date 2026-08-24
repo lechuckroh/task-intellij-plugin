@@ -1,7 +1,9 @@
 package lechuck.intellij.explorer
 
+import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -77,6 +79,31 @@ class TaskDiscoveryCacheTest : BasePlatformTestCase() {
 
         assertNull("a fresh call has nothing cached yet", cache.cachedResult(virtualFile))
         assertEquals(listOf("build"), cache.awaitResult(virtualFile).tasks.map { it.name })
+    }
+
+    /**
+     * The cache evicts its own entries when a Taskfile changes on disk, without anything else
+     * having to notice: this used to be TaskExplorerPanel's job, which meant it only happened in a
+     * session where the user had actually opened the tool window -- every other consumer (the Run
+     * Anything provider) could read an entry that outlived the file's content indefinitely.
+     */
+    @Test
+    fun testAnEditToTheTaskfileEvictsItsCachedResultWithoutAnyToolWindow() {
+        assumeTrue("requires the task CLI to be installed", isTaskAvailable())
+        val virtualFile = writeTaskfile("version: '3'\ntasks:\n  build: echo build\n")
+        val cache = TaskDiscoveryCache.getInstance(project)
+        cache.awaitResult(virtualFile)
+        assertNotNull(cache.cachedResult(virtualFile))
+
+        WriteAction.runAndWait<Throwable> {
+            VfsUtil.saveText(virtualFile, "version: '3'\ntasks:\n  deploy: echo deploy\n")
+        }
+
+        assertNull(
+            "the edited Taskfile's stale result must be gone",
+            cache.cachedResult(virtualFile),
+        )
+        assertEquals(listOf("deploy"), cache.awaitResult(virtualFile).tasks.map { it.name })
     }
 
     /**

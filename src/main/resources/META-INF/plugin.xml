@@ -4,29 +4,43 @@
     <vendor email="lechuckroh@gmail.com" url="https://github.com/lechuckroh/task-intellij-plugin">LechuckRoh</vendor>
 
     <description><![CDATA[
-    <code>Taskfile.yml</code> (<a href="https://taskfile.dev">Task</a>) support in Run/Debug configuration
+    Run <code>Taskfile.yml</code> (<a href="https://taskfile.dev">Task</a>) tasks from the IDE.
+
+    <h3>Features</h3>
+    <ul>
+      <li><b>Run configuration</b>: a <code>Taskfile</code> run configuration type, with
+        autocompletion for task names, <code>task</code>-level variables, environment variables,
+        and an optional PTY.</li>
+      <li><b>Task Explorer tool window</b>: every Taskfile in the project as a tree, with run,
+        navigate-to-definition, and toggles for internal tasks and task descriptions. Refreshes
+        itself when a Taskfile changes.</li>
+      <li><b>Gutter icons</b>: a run icon next to every task in a Taskfile, right in the editor.</li>
+      <li><b>Run Anything</b>: type <code>task &lt;name&gt;</code> in the Run Anything popup
+        (Ctrl+Ctrl) to complete and run a task.</li>
+    </ul>
 
     <h3>Requirements</h3>
     <ul>
       <li>Install <code>task</code>. See <a href="https://taskfile.dev/#/installation">here</a></li>
-      <li>Make sure <code>task</code> command is in your <code>PATH</code></li>
+      <li>Make sure the <code>task</code> command is in your <code>PATH</code></li>
     </ul>
 
     <h3>Usage</h3>
-    <ol>
-      <li>Open 'Run/Debug Configurations'</li>
-      <li>Add 'Taskfile'</li>
-        <ul>
-          <li>Task executable: Select <code>task</code> executable to run. Set empty to run 'task' in PATH.</li>
-          <li>Taskfile: Select <code>Taskfile.yml</code> file to use.</li>
-          <li>Task: Input task name to run.</li>
-          <li>CLI arguments: Input <a href="https://taskfile.dev/#/usage?id=forwarding-cli-arguments-to-commands">CLI arguments</a> to use.</li>
-        </ul>
-    </ol>
+    <ul>
+      <li>Open 'Run/Debug Configurations' and add a <code>Taskfile</code> configuration, or</li>
+      <li>open the <code>Task Explorer</code> tool window and run a task from the tree, or</li>
+      <li>click the run icon in the gutter next to a task in a Taskfile, or</li>
+      <li>press Ctrl twice and type <code>task &lt;name&gt;</code>.</li>
+    </ul>
 
     ]]></description>
 
     <change-notes><![CDATA[
+    v2.1.0
+    <ul>
+        <li>Run tasks from the Run Anything popup</li>
+    </ul>
+
     v2.0.0
     <ul>
         <li>Set minimum requirements: 2026.2</li>
@@ -47,6 +61,8 @@
                 implementationClass="lechuck.intellij.TaskLineMarkerProvider"/>
         <toolWindow id="Task Explorer" anchor="left" icon="/icons/taskExplorer.svg"
                     factoryClass="lechuck.intellij.explorer.TaskExplorerToolWindowFactory"/>
+        <runAnything.executionProvider
+                implementation="lechuck.intellij.runanything.TaskRunAnythingProvider"/>
     </extensions>
 
     <actions>
