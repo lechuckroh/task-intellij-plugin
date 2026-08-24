@@ -12,7 +12,7 @@ plugins {
 
 group = "lechuck"
 
-version = "2.0.0"
+version = "2.0.1"
 
 // bytecode stays at 17: it runs unchanged on every JBR from 2026.2 (the minimum
 // supported version, see sinceBuild below) onward, and the toolchain keeps JDK 21/25
