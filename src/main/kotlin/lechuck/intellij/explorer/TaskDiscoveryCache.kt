@@ -16,9 +16,11 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.atomic.AtomicLong
 import lechuck.intellij.discovery.CliFailureReason
 import lechuck.intellij.discovery.DiscoveryResult
 import lechuck.intellij.discovery.TaskDiscovery
+import org.jetbrains.annotations.TestOnly
 
 /**
  * Caches [TaskDiscovery.discoverDetailed] results by Taskfile path, computed on a small bounded
@@ -35,6 +37,18 @@ import lechuck.intellij.discovery.TaskDiscovery
 @Service(Service.Level.PROJECT)
 internal class TaskDiscoveryCache(private val project: Project) : Disposable {
     private val results = ConcurrentHashMap<String, CompletableFuture<DiscoveryResult>>()
+
+    // Reverse edge of the include graph: contributing file -> the roots whose cached result was
+    // built from it. Without this, editing an included file leaves the including file's entry
+    // cached and stale, and no name filter could find it -- `includes:` takes an arbitrary path,
+    // so an included Taskfile can be called anything at all.
+    private val includedBy = ConcurrentHashMap<String, MutableSet<String>>()
+
+    // Bumped by every invalidation. A discovery that was already running when its input changed
+    // must not have its now-stale result cached: each op on the maps above is atomic on its own,
+    // but "compute, then record, then publish" is not, so without this an edit landing mid-flight
+    // is simply lost and the stale entry survives until the next edit of either file.
+    private val generation = AtomicLong()
     private val executor =
         AppExecutorUtil.createBoundedApplicationPoolExecutor("Task Explorer Discovery", CONCURRENCY)
 
@@ -59,8 +73,14 @@ internal class TaskDiscoveryCache(private val project: Project) : Disposable {
                 object : BulkFileListener {
                     override fun after(events: List<VFileEvent>) {
                         events.forEach { event ->
+                            // The name filter is an optimization for the common case; a file that
+                            // is known to have contributed to some cached result is invalidated
+                            // whatever it is called, since an `includes:` target need not be named
+                            // like a Taskfile at all.
                             if (
-                                TaskfileFinder.isRecognizedName(event.path.substringAfterLast('/'))
+                                TaskfileFinder.isRecognizedName(
+                                    event.path.substringAfterLast('/')
+                                ) || includedBy.containsKey(event.path)
                             ) {
                                 invalidate(event.path)
                             }
@@ -126,7 +146,18 @@ internal class TaskDiscoveryCache(private val project: Project) : Disposable {
             try {
                 executor.execute {
                     try {
-                        future.complete(TaskDiscovery.discoverDetailed(project, file))
+                        val startedAt = generation.get()
+                        val result = TaskDiscovery.discoverDetailed(project, file)
+                        rememberSources(file.path, result)
+                        // Checked after recording, not just before: an invalidation landing between
+                        // the two would otherwise find no edge to follow and leave this result --
+                        // computed from what the file used to say -- cached indefinitely. Callers
+                        // already waiting still get it, since it is the best answer available right
+                        // now, but it is dropped so the next caller recomputes.
+                        if (generation.get() != startedAt) {
+                            results.remove(file.path, future)
+                        }
+                        future.complete(result)
                     } catch (e: ProcessCanceledException) {
                         future.completeExceptionally(e)
                         throw e
@@ -143,8 +174,44 @@ internal class TaskDiscoveryCache(private val project: Project) : Disposable {
             future
         }
 
+    /**
+     * Seeds [path]'s entry directly. Only for tests that need a specific result on a row without
+     * running discovery to get it -- production code always goes through [futureFor], which is what
+     * keeps the include graph recorded.
+     */
+    @TestOnly
+    fun put(path: String, result: DiscoveryResult) {
+        results[path] = CompletableFuture.completedFuture(result)
+        rememberSources(path, result)
+    }
+
+    /**
+     * Drops [path]'s own cached result and every result that was built from it -- a Taskfile that
+     * `includes:` the edited one has an entry of its own, and that entry is just as stale.
+     *
+     * One level of edges is enough: a root's [DiscoveryResult.sourceFiles] already lists every file
+     * that contributed to it at any depth, so no chain has to be walked here.
+     */
     fun invalidate(path: String) {
-        results.remove(path)
+        generation.incrementAndGet()
+        // [path] itself is in the set, not just the roots reached through it: it may be a root of
+        // its own (every Taskfile is), and its edges are just as stale as theirs.
+        val staleRoots = includedBy.remove(path).orEmpty() + path
+        staleRoots.forEach { root ->
+            results.remove(root)
+            // The root's edges describe a result that no longer exists. Dropping them keeps
+            // includedBy from growing without bound as roots come and go, and stops a file the new
+            // result no longer includes from evicting it; a re-run records the edges it really has.
+            includedBy.values.forEach { it.remove(root) }
+        }
+    }
+
+    private fun rememberSources(rootPath: String, result: DiscoveryResult) {
+        result.sourceFiles
+            .filter { it != rootPath }
+            .forEach { source ->
+                includedBy.computeIfAbsent(source) { ConcurrentHashMap.newKeySet() }.add(rootPath)
+            }
     }
 
     // shutdownNow() drops any not-yet-started computations without completing their futures --
@@ -155,6 +222,7 @@ internal class TaskDiscoveryCache(private val project: Project) : Disposable {
         results.values.forEach {
             it.completeExceptionally(CancellationException("Project closing"))
         }
+        includedBy.clear()
     }
 
     companion object {

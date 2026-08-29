@@ -20,9 +20,13 @@ class TaskYamlDiscoveryTest {
         assertEquals(listOf("build", "shortform"), TaskYamlDiscovery.discover(yaml).map { it.name })
     }
 
-    /** includes: is the CLI's job -- this fallback only ever parses the one Taskfile it's given. */
+    /**
+     * The string overload has no directory to resolve a relative include against, so it is the one
+     * entry point that cannot follow `includes:` -- see [TaskYamlIncludesTest] for the file-based
+     * walk that does.
+     */
     @Test
-    fun testIncludedTasksAreNotDiscovered() {
+    fun testTheStringOverloadCannotFollowIncludes() {
         val yaml =
             """
             includes:
@@ -86,5 +90,21 @@ class TaskYamlDiscoveryTest {
             emptyList<String>(),
             TaskYamlDiscovery.discoverInternalOnly("not: [valid").map { it.name },
         )
+    }
+
+    /**
+     * `~/x` is the home directory to Task as it is to a shell, and an include path that kept the
+     * literal `~` would be resolved relative to the including Taskfile instead -- silently, since
+     * that lookup simply fails and reports the include missing.
+     */
+    @Test
+    fun testHomeRelativeIncludePathsAreExpanded() {
+        val home = System.getProperty("user.home")
+
+        assertEquals("$home/Taskfile.yml", TaskYamlDiscovery.expandHome("~/Taskfile.yml"))
+        assertEquals("./lib/Taskfile.yml", TaskYamlDiscovery.expandHome("./lib/Taskfile.yml"))
+        assertEquals("/abs/Taskfile.yml", TaskYamlDiscovery.expandHome("/abs/Taskfile.yml"))
+        // Only the `~/` form: a directory that merely starts with a tilde is a normal path.
+        assertEquals("~tmp/Taskfile.yml", TaskYamlDiscovery.expandHome("~tmp/Taskfile.yml"))
     }
 }

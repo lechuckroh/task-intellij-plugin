@@ -4,15 +4,32 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 
 /**
- * Single entry point for discovering the tasks in a Taskfile, shared by every consumer (currently
- * the Task run configuration's autocomplete; a gutter icon and a tool window are planned) so there
- * is exactly one place that knows how to read a Taskfile rather than a parser per consumer.
+ * Single entry point for discovering the tasks in a Taskfile, shared by every consumer so there is
+ * exactly one place that knows how to read a Taskfile rather than a parser per consumer.
  *
- * Tries [TaskCliDiscovery] first, on every call -- a missing `task` binary fails fast, and caching
- * that absence would miss someone installing it mid-session. Only the CLI reads [file] from disk
- * the way running `task` itself would, which is what lets it resolve `includes:`; whenever it can't
- * answer cleanly, [TaskYamlDiscovery] falls back to the editor's own unsaved text instead, since
- * there is no disk-only requirement to uphold once the CLI is out of the picture.
+ * ## The two sources answer different questions
+ *
+ * [TaskCliDiscovery] and [TaskYamlDiscovery] are not a preference and a fallback for the same
+ * question; they are authorities over different ones, and where they disagree the answer depends on
+ * what is being asked.
+ *
+ * - **[TaskCliDiscovery] owns what is runnable.** Only Task itself knows the full picture: it
+ *   downloads, verifies and caches *remote* includes, it expands templates and `sh:` variables in
+ *   an include path, and it computes `up_to_date`. When something is about to be executed, or shown
+ *   as executable, this is the authority.
+ * - **[TaskYamlDiscovery] owns what a Taskfile says.** It sees the `internal: true` tasks the CLI
+ *   never reports, it can follow local `includes:`, it answers from an editor buffer that has not
+ *   been saved, and it costs no subprocess -- so it is what editor-side features (references,
+ *   navigation, inspections) can use, since those run under the read lock where waiting on a
+ *   process is forbidden.
+ *
+ * Two rules keep that split honest. **Execution follows the CLI**: a name the CLI does not report
+ * is not offered as runnable. And **the parser never guesses**: an include it cannot resolve on the
+ * files alone is reported as unresolved (see [UnresolvedInclude]), never silently dropped, so a
+ * caller can say "this part could not be read" instead of showing a list that is quietly short.
+ *
+ * The CLI is tried first, on every call -- a missing `task` binary fails fast, and caching that
+ * absence would miss someone installing it mid-session.
  */
 object TaskDiscovery {
     /**
@@ -38,13 +55,39 @@ object TaskDiscovery {
         taskExecutable: String = "",
     ): DiscoveryResult =
         when (val outcome = TaskCliDiscovery.discover(file.path, taskExecutable)) {
-            is CliOutcome.Success -> DiscoveryResult(outcome.tasks, warning = null)
-            is CliOutcome.Failure ->
-                DiscoveryResult(TaskYamlDiscovery.discover(project, file), outcome.reason)
+            is CliOutcome.Success ->
+                DiscoveryResult(
+                    outcome.tasks,
+                    warning = null,
+                    // The include graph the caller needs for invalidation: an included file
+                    // edited on disk has to invalidate the entry cached under the file that
+                    // includes it. Both halves are needed -- where the CLI says each task was
+                    // defined covers files the parser cannot reach (remote, templated), and the
+                    // parser covers files that contribute no task of their own and so are absent
+                    // from the CLI's output entirely.
+                    sourceFiles =
+                        outcome.tasks.mapNotNull { it.taskfilePath.ifEmpty { null } }.toSet() +
+                            TaskYamlDiscovery.sourceFilesOf(project, file) +
+                            file.path,
+                    unresolvedIncludes = emptyList(),
+                )
+            is CliOutcome.Failure -> {
+                val parsed = TaskYamlDiscovery.discoverDetailed(project, file)
+                DiscoveryResult(
+                    parsed.tasks,
+                    outcome.reason,
+                    parsed.sourceFiles + file.path,
+                    parsed.unresolvedIncludes,
+                )
+            }
         }
 }
 
 internal data class DiscoveryResult(
     val tasks: List<DiscoveredTask>,
     val warning: CliFailureReason?,
+    /** Every Taskfile that contributed a task, the one asked about included. */
+    val sourceFiles: Set<String> = emptySet(),
+    /** Includes that could not be followed -- always empty when the CLI answered. */
+    val unresolvedIncludes: List<UnresolvedInclude> = emptyList(),
 )

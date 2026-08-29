@@ -13,6 +13,8 @@ import lechuck.intellij.TaskPluginIcons
 import lechuck.intellij.discovery.CliFailureReason
 import lechuck.intellij.discovery.DiscoveredTask
 import lechuck.intellij.discovery.TaskYamlDiscovery
+import lechuck.intellij.discovery.UnresolvedInclude
+import lechuck.intellij.discovery.UnresolvedIncludeReason
 
 /**
  * Invisible tree root: its children are one [TaskfileGroupNode] per Taskfile [TaskfileFinder] finds
@@ -65,9 +67,13 @@ internal class TaskfileGroupNode(
         val cache = TaskDiscoveryCache.getInstance(project)
         val cached = cache.cachedResult(file)
         if (cached != null) {
-            if (cached.tasks.isEmpty()) {
-                presentation.locationString = cached.warning.toDisplayText()
-            }
+            // A CLI failure only speaks for the whole file when nothing was found at all; an
+            // unresolved include is worth saying either way, since the list is short by however
+            // many tasks that include would have brought in. Reporting them rather than dropping
+            // them is the point of the parser tracking them at all (see TaskDiscovery).
+            presentation.locationString =
+                (if (cached.tasks.isEmpty()) cached.warning.toDisplayText() else null)
+                    ?: cached.unresolvedIncludes.toDisplayText()
         } else {
             cache.ensureDiscovered(file, onDiscoveryReady)
         }
@@ -81,11 +87,10 @@ internal class TaskfileGroupNode(
                 // subprocess call, so it's cheap enough to redo on every getChildren() rather than
                 // needing the same treatment as the CLI-backed result above.
                 //
-                // Deduplicated by name against `tasks`: those normally exclude internal ones (the
-                // CLI never reports them), but the YAML fallback TaskDiscovery falls back to when
-                // the CLI is unavailable doesn't know which tasks are internal and returns all of
-                // them -- without this, that specific combination (no CLI + this toggle on) would
-                // show every internal task twice.
+                // Deduplicated by name against `tasks`, which never contains an internal task
+                // whichever backend answered -- the CLI does not report them, and the parser
+                // filters them out. The guard costs nothing and keeps this row-building honest if
+                // either of those ever changes.
                 val existingNames = tasks.mapTo(mutableSetOf()) { it.name }
                 tasks +
                     TaskYamlDiscovery.discoverInternalOnly(project, file).filter {
@@ -98,6 +103,24 @@ internal class TaskfileGroupNode(
     }
 
     override fun getEqualityObjects(): Array<Any> = arrayOf(file)
+}
+
+/**
+ * One line naming the includes that could not be followed, or null when every include resolved.
+ * Kept short -- this is a tree row's grey suffix, not a report -- so several unresolved includes
+ * are counted rather than listed.
+ */
+private fun List<UnresolvedInclude>.toDisplayText(): String? {
+    if (isEmpty()) return null
+    val first = first()
+    val reason =
+        when (first.reason) {
+            UnresolvedIncludeReason.REMOTE -> "remote include not read"
+            UnresolvedIncludeReason.DYNAMIC -> "include path is dynamic"
+            UnresolvedIncludeReason.MISSING -> "included file not found"
+        }
+    return if (size == 1) "${first.namespace}: $reason"
+    else "${first.namespace}: $reason (+${size - 1} more)"
 }
 
 /**

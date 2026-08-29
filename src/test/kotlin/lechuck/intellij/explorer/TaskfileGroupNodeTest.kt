@@ -5,6 +5,7 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
+import lechuck.intellij.discovery.TaskDiscovery
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -117,6 +118,67 @@ class TaskfileGroupNodeTest : BasePlatformTestCase() {
         node.update(presentation)
 
         assertEquals("Failed to parse Taskfile", presentation.locationString)
+    }
+
+    /**
+     * The user-visible end of "an include this parser cannot follow is never silently dropped": the
+     * row says so, and says so even though tasks *were* found -- the list is simply short by
+     * whatever that include would have brought in. Runs the whole path (TaskYamlDiscovery ->
+     * TaskDiscovery -> the cache -> the row), since every seam in between could drop the report.
+     *
+     * Uses a bogus `task` executable to force the parser rather than the CLI: only the parser
+     * reports unresolved includes, because the CLI resolves remote ones for real.
+     */
+    @Test
+    fun testAnIncludeThatCannotBeFollowedIsNamedOnTheRow() {
+        val virtualFile =
+            writeTaskfile(
+                "version: '3'\nincludes:\n  shared: https://example.com/Taskfile.yml\n" +
+                    "tasks:\n  build: echo build\n"
+            )
+        val result = TaskDiscovery.discoverDetailed(project, virtualFile, "/no/such/task-binary")
+        assertEquals(listOf("build"), result.tasks.map { it.name })
+        assertEquals(
+            "the report has to survive the TaskDiscovery seam",
+            1,
+            result.unresolvedIncludes.size,
+        )
+
+        assertEquals("shared: remote include not read", rowSuffixFor(virtualFile, result))
+    }
+
+    /**
+     * Several unresolved includes are counted rather than listed -- a row is not a report.
+     *
+     * Has a task of its own on purpose: with no tasks at all the row prefers to explain *that*
+     * (here, the bogus `task` binary), which is the precedence
+     * [testAnIncludeThatCannotBeFollowedIsNamedOnTheRow] leaves in place.
+     */
+    @Test
+    fun testSeveralUnfollowableIncludesAreCounted() {
+        val virtualFile =
+            writeTaskfile(
+                "version: '3'\nincludes:\n  a: https://example.com/a.yml\n" +
+                    "  b: https://example.com/b.yml\ntasks:\n  build: echo build\n"
+            )
+        val result = TaskDiscovery.discoverDetailed(project, virtualFile, "/no/such/task-binary")
+
+        assertTrue(rowSuffixFor(virtualFile, result)!!.endsWith("(+1 more)"))
+    }
+
+    /**
+     * Renders the row the way the tree does, from a result put into the cache by hand: [update]
+     * reads only what is already cached, and going through real discovery here would run the
+     * ambient `task` instead of the bogus one these tests need.
+     */
+    private fun rowSuffixFor(
+        file: VirtualFile,
+        result: lechuck.intellij.discovery.DiscoveryResult,
+    ): String? {
+        TaskDiscoveryCache.getInstance(project).put(file.path, result)
+        val presentation = PresentationData()
+        TaskfileGroupNode(project, file) {}.update(presentation)
+        return presentation.locationString
     }
 
     @Test

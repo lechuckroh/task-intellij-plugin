@@ -8,10 +8,11 @@ import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.openapi.diagnostic.Logger
 
 /**
- * Discovers tasks by shelling out to the `task` CLI itself, the only thing that resolves
- * `includes:` (namespaced task names, and the line in whichever included Taskfile actually defines
- * them) the way running the task would. [TaskYamlDiscovery] is the fallback for when the binary
- * isn't installed.
+ * Discovers tasks by shelling out to the `task` CLI itself -- the authority on what is *runnable*,
+ * since only Task resolves remote and templated `includes:` and reports the line in whichever
+ * included Taskfile actually defines a task. [TaskYamlDiscovery] answers a different question (what
+ * a Taskfile says) and stands in when the binary isn't installed; see [TaskDiscovery] for the
+ * split.
  */
 internal object TaskCliDiscovery {
     private val LOG = Logger.getInstance(TaskCliDiscovery::class.java)
@@ -23,9 +24,10 @@ internal object TaskCliDiscovery {
     /**
      * Returns the tasks task itself would run from [taskfilePath], or the specific reason it
      * couldn't -- [TaskDiscovery] uses [CliOutcome.Failure] as the signal to fall back to the more
-     * lenient (but includes:-blind) [TaskYamlDiscovery], which may still find something task itself
-     * refused to run, while the failure's [CliOutcome.Failure.reason] lets a UI (the tool window)
-     * explain why to the user instead of just showing an empty list.
+     * lenient [TaskYamlDiscovery], which may still find something task itself refused to run (and
+     * which follows local `includes:`, though not the remote or templated ones only Task can
+     * resolve), while the failure's [CliOutcome.Failure.reason] lets a UI (the tool window) explain
+     * why to the user instead of just showing an empty list.
      *
      * [taskExecutable] mirrors [lechuck.intellij.TaskRunConfiguration.taskPath]: empty means
      * "resolve `task` from the ambient PATH", same as running the configuration does.

@@ -100,9 +100,13 @@ class TaskRunConfigurationEditorTest : BasePlatformTestCase() {
      * `findTasks`'s `taskExecutable` has to actually reach
      * [lechuck.intellij.discovery.TaskDiscovery] and from there
      * [lechuck.intellij.discovery.TaskCliDiscovery] -- not be silently dropped in favor of the
-     * ambient PATH's `task` -- so this points it at a bogus path while a real `task` is still on
-     * PATH (guaranteed by [isTaskAvailable]) and expects the YAML fallback's result (every task,
-     * since that fallback doesn't exclude `internal:` ones) rather than the CLI's.
+     * ambient PATH's `task`. Points it at a bogus path while a real `task` is still on PATH
+     * (guaranteed by [isTaskAvailable]), and looks for a task that exists *only* in the unsaved
+     * editor text: the CLI reads disk and could never report it, so seeing it proves the bogus
+     * executable really was used and discovery fell back to the PSI-based parser.
+     *
+     * (The inverse of [testTasksComeFromDiskRatherThanTheEditorTextWhenCliIsAvailable], which pins
+     * the same distinction from the other side.)
      *
      * Written under a test-specific subdirectory, not the shared light-project root other tests in
      * this class use, since [BasePlatformTestCase] reuses one light project (and its Document
@@ -115,22 +119,18 @@ class TaskRunConfigurationEditorTest : BasePlatformTestCase() {
         val file =
             writeTaskfile(
                 "${getName()}/Taskfile.yml",
-                """
-                version: '3'
-                tasks:
-                  build: echo build
-                  hidden:
-                    internal: true
-                    cmds:
-                      - echo hidden
-                """
-                    .trimIndent(),
+                "version: '3'\ntasks:\n  build: echo build\n",
             )
         val virtualFile = editor.resolveTaskfile(file.path)!!
 
+        val document = FileDocumentManager.getInstance().getDocument(virtualFile)!!
+        WriteCommandAction.runWriteCommandAction(project) {
+            document.setText("version: '3'\ntasks:\n  build: echo build\n  unsaved: echo unsaved\n")
+        }
+
         val tasks = editor.findTasks(virtualFile, taskExecutable = "/no/such/task-binary")
 
-        assertEquals(setOf("build", "hidden"), tasks.toSet())
+        assertEquals(setOf("build", "unsaved"), tasks.toSet())
     }
 
     private fun isTaskAvailable(): Boolean =
