@@ -2,10 +2,12 @@ package lechuck.intellij
 
 import com.intellij.execution.configurations.RuntimeConfigurationError
 import com.intellij.execution.configurations.RuntimeConfigurationWarning
+import com.intellij.openapi.util.SystemInfo
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
 import lechuck.intellij.vars.VariablesData
 import org.junit.Assert.assertThrows
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
@@ -61,6 +63,30 @@ class TaskRunConfigurationTest : BasePlatformTestCase() {
 
         assertEquals(listOf("build", "FOO=bar", "--", "--verbose"), params)
         assertEquals("task", cmd.exePath)
+    }
+
+    /**
+     * WSL support is a Windows-only branch, and this pins that down from the outside: off Windows a
+     * UNC-shaped Taskfile path is just a path, and the command line has to come out exactly as it
+     * always did. A regression in the guard fails here rather than silently on someone's Mac.
+     */
+    @Test
+    fun testUncTaskfileIsNotRewrittenOffWindows() {
+        assumeTrue(
+            "on Windows this path is run inside the distribution by design",
+            !SystemInfo.isWindows,
+        )
+        val cfg = createConfiguration()
+        cfg.task = "build"
+        cfg.filename = "//wsl.localhost/Ubuntu/home/x/Taskfile.yml"
+
+        val cmd = cfg.buildCommandLine()
+
+        assertEquals("task", cmd.exePath)
+        assertEquals(
+            listOf("--taskfile", "//wsl.localhost/Ubuntu/home/x/Taskfile.yml", "build"),
+            cmd.parametersList.list,
+        )
     }
 
     // --- working directory ---
