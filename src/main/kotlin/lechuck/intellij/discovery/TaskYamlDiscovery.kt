@@ -8,6 +8,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
+import lechuck.intellij.wsl.WslPaths
 
 /**
  * Why an include could not be followed. Never silently dropped: an include this parser cannot
@@ -302,8 +303,12 @@ internal object TaskYamlDiscovery {
      */
     private fun resolve(from: VirtualFile, path: String): VirtualFile? {
         val expanded = expandHome(path)
+        // An absolute include inside a WSL Taskfile is absolute *in the distribution*, while the
+        // VFS only knows the UNC form, so it is re-rooted onto the distribution the including file
+        // is mounted under. Identity for a Taskfile outside WSL.
         val target =
-            if (expanded.startsWith("/")) from.fileSystem.findFileByPath(expanded)
+            if (expanded.startsWith("/"))
+                from.fileSystem.findFileByPath(WslPaths.hostMapper(from.path)(expanded))
             else from.parent?.findFileByRelativePath(expanded)
         if (target == null || !target.isDirectory) return target
         return DIRECTORY_INCLUDE_NAMES.firstNotNullOfOrNull { target.findChild(it) }
@@ -314,6 +319,10 @@ internal object TaskYamlDiscovery {
      * because the alternative -- proving it through the VFS -- needs a fixture file at a real home
      * path, and the relative reading it must not fall back to only differs when a directory
      * literally named `~` exists.
+     *
+     * Inside a WSL Taskfile this is the host's home rather than the distribution's, which is wrong
+     * but deliberately left so: the distribution's home can only be had by shelling out, and this
+     * parser exists precisely because it costs no subprocess and can answer under a read lock.
      */
     internal fun expandHome(path: String): String =
         if (path.startsWith("~/")) System.getProperty("user.home") + path.removePrefix("~")

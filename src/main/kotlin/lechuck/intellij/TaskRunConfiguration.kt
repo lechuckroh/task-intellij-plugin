@@ -1,5 +1,6 @@
 package lechuck.intellij
 
+import com.intellij.execution.ExecutionException
 import com.intellij.execution.Executor
 import com.intellij.execution.configuration.EnvironmentVariablesData
 import com.intellij.execution.configurations.*
@@ -9,12 +10,17 @@ import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.execution.ui.ConsoleView
 import com.intellij.openapi.components.PathMacroManager
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.SystemInfo
 import com.intellij.terminal.TerminalExecutionConsoleBuilder
 import com.jediterm.core.util.TermSize
 import java.io.File
 import lechuck.intellij.util.StringUtil.splitVars
 import lechuck.intellij.vars.VariablesData
+import lechuck.intellij.wsl.TaskWslSupport
+import lechuck.intellij.wsl.WslPaths
+import lechuck.intellij.wsl.WslRunPlanner
 import org.jdom.Element
 
 class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, name: String) :
@@ -30,6 +36,7 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
     var pty = true
 
     private companion object {
+        private val LOG = Logger.getInstance(TaskRunConfiguration::class.java)
         const val TASKFILE = "taskfile"
         const val TASKPATH = "taskPath"
         const val FILENAME = "filename"
@@ -54,11 +61,32 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         // legitimately appear only later, e.g. be generated right before the run.
         val macroManager = PathMacroManager.getInstance(project)
 
-        if (isMissingFile(macroManager.expandPath(filename) ?: filename)) {
+        val expandedFilename = macroManager.expandPath(filename) ?: filename
+        if (isMissingFile(expandedFilename)) {
             throw RuntimeConfigurationWarning("Taskfile not found: $filename")
         }
         if (isMissingFile(taskPath)) {
             throw RuntimeConfigurationWarning("Task executable not found: $taskPath")
+        }
+        // A Taskfile inside a WSL distribution is run by that distribution's own task, so a Windows
+        // executable configured here is dropped rather than used (see
+        // [lechuck.intellij.wsl.WslRunPlanner.plan]). Silently running a different binary than the
+        // one configured is worse than a warning, which leaves the run button enabled anyway.
+        //
+        // The checks above need no such guard: java.io.File on Windows calls a path like
+        // /usr/local/bin/task relative, not missing, and a UNC path it calls absolute is genuinely
+        // reachable -- that is how the IDE opened the project in the first place.
+        if (SystemInfo.isWindows && WslPaths.parse(expandedFilename) != null) {
+            val ignored =
+                WslRunPlanner.plan(taskPath, null, listOf(expandedFilename))
+                    ?.ignoredWindowsExecutable
+            if (ignored != null) {
+                throw RuntimeConfigurationWarning(
+                    "Windows task executable ignored for a WSL Taskfile: $ignored. " +
+                        "'${WslRunPlanner.DEFAULT_EXECUTABLE}' from the distribution's own PATH " +
+                        "is used instead."
+                )
+            }
         }
         val workDir = File(macroManager.expandPath(workingDirectory) ?: workingDirectory)
         if (workingDirectory.isNotEmpty() && workDir.isAbsolute && !workDir.isDirectory) {
@@ -158,7 +186,32 @@ class TaskRunConfiguration(project: Project, factory: TaskConfigurationFactory, 
         }
     }
 
+    /**
+     * The command line to run, which is [buildHostCommandLine] unless the Taskfile turns out to
+     * live inside a WSL distribution -- see [TaskWslSupport.patchForWsl], which decides that and is
+     * a no-op everywhere else.
+     *
+     * A failure to patch falls back to the host command line rather than aborting: that is the one
+     * that would have run before WSL support existed, and a run that fails with task's own message
+     * in the console beats a run button that silently does nothing. The fallback is built afresh,
+     * since patching rewrites the command line it is given before the step that can fail.
+     */
     internal fun buildCommandLine(): GeneralCommandLine {
+        val cmdLine = buildHostCommandLine()
+        return try {
+            TaskWslSupport.patchForWsl(project, cmdLine) ?: cmdLine
+        } catch (e: ExecutionException) {
+            LOG.warn("Failed to patch the command line for WSL; running it on the host instead", e)
+            buildHostCommandLine()
+        }
+    }
+
+    /**
+     * The command line as it is on this host: `task` with the paths exactly as the IDE sees them.
+     * Kept separate from [buildCommandLine] so the WSL branch is provably a post-processing step
+     * rather than a second way of building the same thing.
+     */
+    internal fun buildHostCommandLine(): GeneralCommandLine {
         val params = ParametersList()
 
         // taskfile

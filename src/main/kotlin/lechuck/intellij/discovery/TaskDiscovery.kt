@@ -54,7 +54,7 @@ object TaskDiscovery {
         file: VirtualFile,
         taskExecutable: String = "",
     ): DiscoveryResult =
-        when (val outcome = TaskCliDiscovery.discover(file.path, taskExecutable)) {
+        when (val outcome = TaskCliDiscovery.discover(file.path, taskExecutable, project)) {
             is CliOutcome.Success ->
                 DiscoveryResult(
                     outcome.tasks,
