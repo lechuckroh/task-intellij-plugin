@@ -53,11 +53,31 @@ Type `task <name>` in the Run Anything popup (`Ctrl` + `Ctrl`) to complete and r
 Task names from the project's Taskfiles are completed as you type, and the rest of the line is passed to `task` as written,
 so flags (`task build --force`) and several tasks at once (`task build test`) work the same as they do in a terminal.
 
+### WSL
+
+A project opened from a WSL distribution (`\\wsl.localhost\<distro>\...`) is run inside that
+distribution: the `task` on the distribution's own `PATH` is used, with Linux paths, so the
+Taskfile's `cmds:`, `includes:` and `dotenv:` entries resolve the way they do in a WSL shell.
+
+This needs no configuration and is detected from the Taskfile's own path, so it applies to the
+Run/Debug configuration, the Task Explorer, the gutter icons and Run Anything alike. Nothing changes
+for a project outside WSL, on any operating system.
+
+Two notes:
+
+* Install `task` **inside the distribution** (`task` on the Windows `PATH` is not used for a WSL
+  project). The command runs in a login shell, so `task` has to be on the `PATH` that shell sets up
+  -- in `.profile`/`.zprofile` rather than only in `.bashrc`/`.zshrc`. A **Task executable** pointing
+  at a Windows binary is ignored, with a warning on the run configuration; a Linux path such as
+  `/usr/local/bin/task` is used as written.
+* Environment variables set on the run configuration are exported inside the distribution's login
+  shell, so the rest of the environment comes from that shell's profile rather than from Windows.
+
 ## Requirements
 
 * IntelliJ platform 2026.2 or higher
 * Install `task`. See [here](https://taskfile.dev/#/installation)
-* Make sure the `task` command is in your `PATH`
+* Make sure the `task` command is in your `PATH` (inside the distribution, for a WSL project)
 * JDK 17 or higher to build from source
 
 ## Install from JetBrains Plugin Marketplace

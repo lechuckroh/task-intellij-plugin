@@ -6,6 +6,9 @@ import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.project.Project
+import lechuck.intellij.wsl.TaskWslSupport
+import lechuck.intellij.wsl.WslPaths
 
 /**
  * Discovers tasks by shelling out to the `task` CLI itself -- the authority on what is *runnable*,
@@ -17,6 +20,14 @@ import com.intellij.openapi.diagnostic.Logger
 internal object TaskCliDiscovery {
     private val LOG = Logger.getInstance(TaskCliDiscovery::class.java)
     private const val TIMEOUT_MS = 5_000
+
+    /**
+     * Starting a stopped distribution is the first thing `wsl.exe` does, and it routinely takes
+     * longer than the host timeout allows. Timing out there would make the tool window fall back to
+     * the YAML parser on the first expand of every session -- the symptom that reads as "the plugin
+     * doesn't see my tasks".
+     */
+    private const val WSL_TIMEOUT_MS = 15_000
 
     private val mapper =
         ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
@@ -32,8 +43,15 @@ internal object TaskCliDiscovery {
      * [taskExecutable] mirrors [lechuck.intellij.TaskRunConfiguration.taskPath]: empty means
      * "resolve `task` from the ambient PATH", same as running the configuration does.
      */
-    fun discover(taskfilePath: String, taskExecutable: String = ""): CliOutcome {
-        val commandLine =
+    fun discover(
+        taskfilePath: String,
+        taskExecutable: String = "",
+        // Only forwarded to the platform's WSL patching, which uses it for modality. Defaulted so
+        // the plain-JUnit tests, which have no project at all, keep calling this as they always
+        // did.
+        project: Project? = null,
+    ): CliOutcome {
+        val hostCommandLine = {
             GeneralCommandLine(
                 taskExecutable.ifEmpty { "task" },
                 "--list-all",
@@ -42,17 +60,37 @@ internal object TaskCliDiscovery {
                 "-t",
                 taskfilePath,
             )
+        }
+        // A Taskfile inside a WSL distribution has to be listed by that distribution's own task:
+        // only it resolves the Taskfile's own absolute Linux includes, and only its answer matches
+        // what running the task will actually do. Null everywhere else, leaving the host command
+        // line exactly as it was. Built afresh on failure, since patching rewrites the command line
+        // it is given before the step that can fail.
+        val wslCommandLine =
+            try {
+                TaskWslSupport.patchForWsl(project, hostCommandLine())
+            } catch (e: ExecutionException) {
+                LOG.warn("Failed to patch task discovery for WSL; listing on the host instead", e)
+                null
+            }
+        val commandLine = wslCommandLine ?: hostCommandLine()
         val handler =
             try {
                 CapturingProcessHandler(commandLine)
             } catch (e: ExecutionException) {
                 return CliOutcome.Failure(CliFailureReason.CLI_UNAVAILABLE)
             }
-        val output = handler.runProcess(TIMEOUT_MS)
+        val output = handler.runProcess(if (wslCommandLine != null) WSL_TIMEOUT_MS else TIMEOUT_MS)
         if (output.isTimeout) {
             LOG.warn("task --list-all timed out for $taskfilePath")
             return CliOutcome.Failure(CliFailureReason.OTHER)
         }
+        // task reports Linux locations when it is the distribution's task that answered, because
+        // that is what it was handed. Everything downstream speaks host paths -- TaskDiscoveryCache
+        // keys its include graph by them and compares against VFS paths, TaskNode navigates with
+        // LocalFileSystem.findFileByPath -- so they are mapped back here, at the single boundary
+        // they cross. Identity when this was not a WSL run.
+        val toHostPath = WslPaths.hostMapper(taskfilePath)
         // Success is decided by whether stdout parses as the expected JSON, not by exit code alone:
         // task --list-all exits 1, not 0, when a Taskfile legitimately has zero tasks -- otherwise
         // indistinguishable at the exit-code level from a real failure, where stdout is empty and
@@ -60,7 +98,7 @@ internal object TaskCliDiscovery {
         val tasks =
             try {
                 mapper.readValue(output.stdout, CliTaskList::class.java).tasks.map {
-                    it.toDiscoveredTask()
+                    it.toDiscoveredTask(toHostPath)
                 }
             } catch (e: Exception) {
                 null
@@ -93,13 +131,13 @@ internal object TaskCliDiscovery {
         var aliases: List<String> = emptyList()
         var location: CliLocation? = null
 
-        fun toDiscoveredTask() =
+        fun toDiscoveredTask(toHostPath: (String) -> String) =
             DiscoveredTask().also {
                 it.name = name
                 it.desc = desc
                 it.summary = summary
                 it.aliases = aliases
-                it.taskfilePath = location?.taskfile ?: ""
+                it.taskfilePath = toHostPath(location?.taskfile ?: "")
                 it.line = location?.line
             }
     }

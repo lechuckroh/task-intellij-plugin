@@ -17,12 +17,15 @@
       <li><b>Gutter icons</b>: a run icon next to every task in a Taskfile, right in the editor.</li>
       <li><b>Run Anything</b>: type <code>task &lt;name&gt;</code> in the Run Anything popup
         (Ctrl+Ctrl) to complete and run a task.</li>
+      <li><b>WSL</b>: a project opened from a WSL distribution runs inside that distribution, with
+        the distribution's own <code>task</code> and Linux paths. No configuration needed.</li>
     </ul>
 
     <h3>Requirements</h3>
     <ul>
       <li>Install <code>task</code>. See <a href="https://taskfile.dev/#/installation">here</a></li>
-      <li>Make sure the <code>task</code> command is in your <code>PATH</code></li>
+      <li>Make sure the <code>task</code> command is in your <code>PATH</code> -- inside the
+        distribution, for a project opened from WSL</li>
     </ul>
 
     <h3>Usage</h3>
@@ -36,6 +39,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+    v2.2.0
+    <ul>
+        <li>Run and discover tasks inside the WSL distribution a project is opened from</li>
+    </ul>
+
     v2.1.0
     <ul>
         <li>Run tasks from the Run Anything popup</li>
